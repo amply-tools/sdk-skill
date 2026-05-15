@@ -96,7 +96,7 @@ Keys source:  amply_bootstrap_for_app (status=<created|existing>)
 | `conflict` | `bundleId + platform` already registered. | Use `amply_get_application` / `amply_list_applications` to find the existing one. |
 | `not_found` | Bad UUID, or you don't have access. | Re-list to find the correct id. |
 | `validation_error` | Backend rejected input. | The `message` field describes the issue. |
-| `access_denied` | OrganizationVoter denied access. | Verify you're in the right org via `amply_whoami`. |
+| `access_denied` | Access control denied access. | Verify you're in the right org via `amply_whoami`. |
 | `network_error` | Endpoint unreachable. | Check `AMPLY_ENDPOINT` and network. |
 | `graphql_error` | Unclassified GraphQL error. | Surface `message` to the user. |
 | `internal_error` | Unexpected. | Try once more; if persists, file an issue. |

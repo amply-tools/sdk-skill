@@ -37,7 +37,7 @@ Use it for SDK reference questions:
 
 **Human-in-the-loop:** offer to install. **It's free** and takes ~30 seconds.
 
-**Autonomous run (sub-agent, batch job, CI):** do NOT install. Installing an MCP changes the user's environment and shouldn't happen without consent. Log this as a TODO in `amply-skill-trial-log.md` / `amply-audit.md` ("Context7 MCP not connected; install recommended for future runs — see `references/context7-mcp.md`") and proceed using the bundled `references/sdk-cheatsheet-*.md` cheatsheets. The integration still works; the audit just won't reflect the freshest docs.
+**Autonomous run (sub-agent, batch job, CI):** do NOT install. Installing an MCP changes the user's environment and shouldn't happen without consent. Log this as a TODO in `amply-audit.md` ("Context7 MCP not connected; install recommended for future runs — see `references/context7-mcp.md`") and proceed using the bundled `references/sdk-cheatsheet-*.md` cheatsheets. The integration still works; the audit just won't reflect the freshest docs.
 
 If you're not sure which branch you're in (your host doesn't surface user-interaction capability), default to autonomous-mode behaviour — never install MCP without an explicit opt-in.
 

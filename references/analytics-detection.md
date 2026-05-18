@@ -2,6 +2,12 @@
 
 Use this during Phase 2. The skill greps for vendor signatures in `package.json`, `Podfile`, Gradle dependency declarations, and source files. For each vendor, also grep for the **call sites** so the audit captures `file:line` and the property keys/types being passed.
 
+**Two classes of call sites:** track-event calls (`.track`, `.logEvent`, `.capture`) and property-write calls (`.people.set`, `.setUserProperty`, `.identify(_, traits)`). These have different decision trees and different audit tables — see `references/event-naming.md` for the events tree and `references/property-writes.md` for the property-writes tree.
+
+**System-event overlap:** the SDK auto-fires a set of system events (`SessionStarted`, `SessionFinished`, etc.). Project events that overlap (e.g. `session_start`, `app_open`) must NOT be mirrored to Amply. See `references/system-events.md`.
+
+**3rd-party SDK bridges:** some SDKs (RevenueCat, Superwall, Adjust) are the source of business events but don't fire app-side `.track()` directly. The audit detects them and flags bridge gaps in Observations. See `references/third-party-event-bridges.md`.
+
 ## Detection signatures by vendor
 
 | Vendor | Package / dependency markers | Native call-site patterns |
@@ -48,7 +54,9 @@ Use this during Phase 2. The skill greps for vendor signatures in `package.json`
 
 ## Per-language grep patterns to run
 
-These are starter regexes for the audit. Run them across `src/`, `ios/`, `android/`, `commonMain/`. Capture file:line + 5 lines of context so the agent can read property keys.
+Starter regexes for the audit. Run them across `src/`, `ios/`, `android/`, `commonMain/`. Capture `file:line` + 5 lines of context so the agent can read property keys and (for property-writes) sample values.
+
+### Track-event calls
 
 ```
 # TypeScript / JavaScript
@@ -74,6 +82,56 @@ These are starter regexes for the audit. Run them across `src/`, `ios/`, `androi
 \bamplitude\.track\b
 \bMixpanelAPI\b
 \bSnowplow\b
+```
+
+### Property-write calls
+
+```
+# TypeScript / JavaScript
+\bmixpanel\.people\.(set|set_once|increment|union)\b
+\bamplitude\.setUserProperti(es|y)\b
+\bnew\s+Identify\(\)|\bIdentify\(\)\.set\b
+\banalytics\.identify\(
+\bposthog\.identify\(|\bposthog\.setPersonProperties\b
+\brudder(stack)?\.identify\(
+\bsetUserProperty\(
+\bHeap\.addUserProperties\b
+\bOneSignal\.sendTag(s)?\b
+\bBraze\.shared\.setCustomAttribute\b
+
+# Swift
+\bMixpanel\.mainInstance\(\)\.people\.(set|set_once|increment)\(
+\bAmplitude\.instance\.setUserProperties\(\b
+\bAmplitude\.instance\.identify\(\b
+\bAnalytics\.setUserProperty\(
+\b\.identify\(\s*userId:\b
+\bPostHogSDK\.shared\.identify\(
+\bBraze\.shared\.setCustomAttribute\(
+
+# Kotlin
+\bmixpanel\.people\b
+\bamplitude\.setUserProperti(es|y)\b
+\bFirebase\.analytics\.setUserProperty\b
+\bfirebaseAnalytics\.setUserProperty\b
+\bposthog\.identify\b|\bposthog\.setPersonProperties\b
+\bOneSignal\.sendTag\b
+```
+
+### 3rd-party SDK uses (for bridge gap check — see `third-party-event-bridges.md`)
+
+```
+\bPurchases\.shared\.purchase\b
+\bPurchases\.shared\.getCustomerInfo\b
+\bPurchases\.shared\.customerInfoStream\b
+\bPurchases\.purchasePackage\b
+\bAdapty\.makePurchase\b
+\bAdapty\.getProfile\b
+\bSuperwall\.shared\.register\b
+\bhandleSuperwallEvent\b
+\bonPurchaseCompleted\b|\bonPurchaseFailure\b   # RevenueCatUI / Paywall.swift
+\bBranch\.getInstance\(\)\.userCompletedAction\b
+\bAppsFlyerLib\.shared\(\)\.logEvent\b
+\bAdjust\.trackEvent\b
 ```
 
 ## Existing-wrapper detection

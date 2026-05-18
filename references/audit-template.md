@@ -2,6 +2,15 @@
 
 The skill emits one Markdown file at the project root: `amply-audit.md`. It is a living document the team refers back to.
 
+## Two kinds of audit entries
+
+The audit separates **prescriptive action items** from **neutral observations**:
+
+- **Required for Amply to work** — items the integration cannot ship without. Action items, prescriptive. Examples: deeplink scheme not registered in `Info.plist` / `AndroidManifest`, env-loading missing (because keys cannot be inlined), listener not wired.
+- **Observations** — neutral facts about the project's existing analytics surface. NOT action items. Per the SKILL.md Scope discipline rule, the skill does not refactor unrelated code; observations let the team decide. Examples: a `*_changed` event without a parallel property-write, one-shot writes of mutable-baseline properties, BI-only wrappers, mixed event-name conventions, 3rd-party SDK uses without a bridge.
+
+Both lists are explicit sections in the output (§ 8 and § 9 below).
+
 ## Skeleton
 
 ```markdown
@@ -13,8 +22,9 @@ The skill emits one Markdown file at the project root: `amply-audit.md`. It is a
 ## 0. Toolchain
 
 - Context7 MCP:        <connected | installed-this-session | declined | unavailable>
-- Project-specific MCP: <name + endpoint | none>
-- Docs source for this run: <Context7 library:id | bundled cheatsheets | mixed>
+- Amply MCP:           <connected — bootstrap via amply_ensure_app | unavailable>
+- Docs source:         <Context7 library:id | bundled cheatsheets | mixed>
+- Mode:                <autopilot | interactive>
 
 ## 1. Project profile
 
@@ -25,6 +35,8 @@ The skill emits one Markdown file at the project root: `amply-audit.md`. It is a
 - RN New Architecture:       <yes | no | n/a>
 - Existing consent framework: <ATT | UMP | OneTrust | Didomi | custom | none>
 - Version gates passed:      <list> | failed: <list>
+- bundleId / applicationId:  <com.acme.app>
+- Amply app resolution:      <created | reused | reused_new_key>
 
 ## 2. Analytics surface
 
@@ -33,89 +45,145 @@ Detected vendors:
 | Vendor | Used for | Wrapper? |
 |---|---|---|
 | Firebase Analytics | event tracking | yes — `src/analytics/index.ts` |
-| RevenueCat | subscription state | n/a |
+| RevenueCat | subscription state | n/a (3rd-party event source — see § 9) |
 
-### Existing events
+### 2.1 Events detected
 
-| event_name | count | sample file:line | property keys (and types) | forward to Amply? |
-|---|---|---|---|---|
-| `paywall_shown` | 14 | `src/screens/Home.tsx:42` | `screen: string`, `source: string` | ✅ as `PaywallShown` |
-| `purchase_completed` | 6 | `src/iap/use-iap.ts:118` | `sku: string`, `price: number` | ✅ as `Purchase` (add `currency`) |
-| `level_complete` | 3 | `src/game/level.tsx:88` | `level: number`, `score: number` | ✅ as `LevelComplete` |
+Decision values: `forward-translated` / `forward-translated-renamed` / `skip-system-overlap` / `skip-property-change-event` / `skip-pii` / `skip-bi-only` (with drop-keys note when applicable).
 
-### Existing user / Custom Properties
+| event_name | count | sample file:line | property keys (types) | Decision | Why |
+|---|---|---|---|---|---|
+| `session_start` | 38 | `src/app.tsx:12` | none | `skip-system-overlap` | SDK auto-fires `SessionStarted` (system) |
+| `app_open` | 24 | `src/index.tsx:8` | none | `skip-system-overlap` | overlaps `SessionStarted` |
+| `paywall_shown` | 14 | `src/paywall.tsx:42` | `screen: string`, `source: string` | `forward-translated → PaywallShown` | high-leverage (paywall) |
+| `purchase_completed` | 6 | `src/iap/use-iap.ts:118` | `sku: string`, `price: number` | `forward-translated → Purchase` | high-leverage; flagged in § 9 — missing `currency` for USD-only campaigns |
+| `subscription_status_changed` | 3 | `src/billing.ts:88` | `from: string`, `to: string` | `skip-property-change-event` | parallel property-write at same site; redundant for Amply |
+| `plan_upgraded` | 2 | `src/billing.ts:120` | `from`, `to`, `discount_code` | `forward-translated-renamed → PlanUpgraded` | event carries `discount_code` side-info not in property diff; keep, strip `from`/`to` |
+| `user.email_changed` | 2 | `src/profile.ts:55` | `email: string` | `skip-pii` | email property is PII |
+| `order_synced` | 412 | `src/sync.ts:88` | `orderId: string` | `forward-translated → OrderSynced (drop orderId)` | drop high-cardinality orderId; keep as event-param boolean filter |
 
-| key | type | source (file:line) | maps to Amply Custom Property |
-|---|---|---|---|
-| `subscription_status` | string | `src/billing/sync.ts:30` | ✅ same key, type String |
-| `notifications_enabled` | boolean | `src/push/register.ts:14` | ✅ same key, type Boolean |
-| `email` | string | `src/auth/profile.ts:55` | ❌ PII — strip from Amply forwarding |
+### 2.2 User-property writes detected
 
-## 3. Wrapper recommendation
+| source (file:line) | Vendor call | Key | Type | Decision | Why |
+|---|---|---|---|---|---|
+| `src/billing/sync.ts:42` | `mixpanel.people.set` | `subscription_status` | string | `mirror → Amply.setCustomProperty` | required for Who-targeting (paywall versioning, post-trial recovery) |
+| `src/auth/profile.ts:18` | `analytics.identify` | `email` | string | `skip-pii` | PII |
+| `src/onboarding/done.ts:9` | `amplitude.setUserProperty` | `onboarding_completed_at` | timestamp | `mirror → Amply.setCustomProperty` (DateTime native / number RN) | high-leverage for entry-based routing |
+| `src/install.ts:11` | `mixpanel.people.set_once` | `install_country` | string | `mirror` | immutable install-time property; ok one-shot |
+| `src/analytics/init.ts:30` | `amplitude.setUserProperty` | `transaction_id` | string | `skip-unique-id` | values look UUID-like at call-site context; not a targeting attribute |
+
+### 2.3 Wrapper recommendation
 
 - **Action:** extend existing wrapper at `src/analytics/index.ts`.
 - **Reason:** the codebase already routes every analytics call through one module, with a typed event catalogue.
-- **Diff:** see commit `<hash>` (`amply-skill` change).
 
-## 4. Custom Properties to set on session start
+## 3. Custom Properties to set
+
+Baseline + project-detected. Set in the wrapper on session start (and on state changes for mutable keys).
 
 | key | type | source | already wired? |
 |---|---|---|---|
-| `subscription_status` | String | RevenueCat `CustomerInfo` | ✅ |
-| `trial_ends_at` | DateTime (epoch ms) | RevenueCat | ❌ — TODO |
-| `paywall_view_count` | Number | App counter | ❌ — TODO |
+| `subscription_status` | String | RevenueCat `CustomerInfo` | ✅ (Phase 2 detected at `src/billing/sync.ts:42`) |
+| `trial_ends_at` | DateTime (epoch ms) | RevenueCat | ❌ — missing from current writes |
+| `paywall_view_count` | Number | App counter (needs counter pattern) | ❌ |
 | `onboarding_completed` | Boolean | App | ✅ |
-| `locale` | String | OS | ❌ — TODO |
-| `install_date` | DateTime | App (first-launch persisted) | ❌ — TODO |
-| `notifications_enabled` | Boolean | Push permission | ✅ |
+| `locale` | String | OS | ❌ |
+| `install_date` | DateTime | App (first-launch persisted) | ❌ |
 
-## 5. Privacy & consent
+## 4. Privacy & consent
 
 - Consent framework:        <ATT + custom>
 - Gate applied to Amply:    yes — `consent.hasAnalyticsConsent()`
 - PII strip list:           email, phone, address, ip
 - Logout reset:             wired in `src/auth/logout.ts:22`
-- ATT refresh after grant:  ❌ — TODO
 
-## 6. Lifecycle & state
+## 5. Lifecycle & state
 
 - Amply instance held by:    `App.tsx` (`useState`-bound)
 - Deeplink listener held by: `App.tsx` (ref + `unsubscribe`)
 - Init point:                `App.tsx:18`
 - First-event ordering:      buffered until ready
-- Logout reset hook:         `src/auth/logout.ts:22`
 
-## 7. Who / When / What readiness — per campaign
+## 6. Who / When / What readiness — per campaign
 
 ### Campaign — "Post-trial recovery"
 
 | | |
 |---|---|
 | **Who** | `subscription_status = 'expired'`, `trial_ends_at < now - 48h`. |
-| **When** | `AppOpened`, `Repeat Rule: on 1, 2, 3 globally`, `Frequency Limit: 1 per day`. |
+| **When** | `SessionStarted` (system event), `Repeat Rule: on 1, 2, 3 globally`, `Frequency Limit: 1 per day`. |
 | **What** | `Deeplink → amply://promo/recovery-offer` → `PromoScreen`. |
-| **Gaps** | App fires `app_open` but not `AppOpened`. Wrapper PascalCase translation handles this. `trial_ends_at` Custom Property is not yet set — TODO from §4. |
+| **Gaps** | `trial_ends_at` Custom Property is not yet set — see § 3 and § 9. |
 
 ### Campaign — "RateReview after first purchase"
 
 | | |
 |---|---|
 | **Who** | `total_purchases >= 1`. |
-| **When** | `PurchaseCompleted`, `Repeat Rule: on 1`, `Frequency Limit: lifetime 1`. |
+| **When** | `Purchase`, `Repeat Rule: on 1`, `Frequency Limit: lifetime 1`. |
 | **What** | `RateReview`. |
 | **Gaps** | None — both event and Custom Property are wired. ⚠ Android: works only in Play-Store-distributed release builds. |
 
-(Repeat per campaign the team wants.)
+## 7. Mode-pinned decisions
 
-## 8. Open TODOs
+(One row per multi-option decision encountered. Mostly relevant for `autopilot` runs.)
 
-- [ ] Compute and push `trial_ends_at` Custom Property from RevenueCat.
-- [ ] Add `currency` property to the `purchase_completed` event so the USD-only campaign can target it.
-- [ ] Persist install date on first launch and push as `install_date` Custom Property.
-- [ ] Decide whether the `email` field needs to be hashed for Custom Property use, or skipped entirely.
-- [ ] Verify deeplink scheme `amply://` is registered in `Info.plist` and `AndroidManifest.xml`.
+| Decision point | Mode | Choice | Rationale |
+|---|---|---|---|
+| Wrapper: extend vs new | autopilot | extend `src/analytics/index.ts` | typed catalogue already exists |
+| Consent posture | autopilot | match project's existing posture | scope discipline — no tightening |
+| Env-loading lib | autopilot | `EXPO_PUBLIC_*` (project is Expo Bare) | platform-idiomatic |
+| `subscription_status_changed` event | autopilot | drop (skip-property-change-event) | property-write at same site is single source of truth |
 
-## 9. Verification handoff
+## 8. Required for Amply to work
+
+Items that MUST be addressed for the integration to function. Each is a prescribed action.
+
+- [ ] Register the `amply://` URL scheme in `Info.plist` and `AndroidManifest.xml` (Phase 6).
+- [ ] Wire env-loading for `EXPO_PUBLIC_AMPLY_APP_ID` / `EXPO_PUBLIC_AMPLY_KEY_PUBLIC` / `EXPO_PUBLIC_AMPLY_KEY_SECRET` (Phase 5).
+- [ ] Hold strong reference to deeplink listener on App.tsx (currently the closure is created inline — would be GC'd; see `references/lifecycle-and-state.md`).
+
+## 9. Observations
+
+Neutral facts the team can act on or ignore. **Not** action items for this skill. Per Scope discipline (SKILL.md), the skill integrates Amply and does not refactor existing analytics or fix unrelated bugs.
+
+### 9.1 Property-write ↔ event gaps
+
+| Event | Parallel property-write found? | Note |
+|---|---|---|
+| `subscription_status_changed` (`src/billing.ts:88`) | ✅ `mixpanel.people.set({ subscription_status })` at same site | Amply gets both event AND property — but event was dropped per § 2.1 (skip-property-change-event) |
+| `plan_upgraded` (`src/billing.ts:120`) | ❌ no property-write found | Amply campaign targeting `Who: plan = 'premium'` won't fire — the property is stale. Decide whether to mirror to a property-write next to this call-site. |
+
+### 9.2 Mutable-baseline keys with one-shot writes
+
+| Key | Source | Note |
+|---|---|---|
+| `subscription_status` | `src/billing/sync.ts:42` — only at login | Mutable baseline; verify it's also updated when subscription state changes (e.g. from a RevenueCat customer-info listener). |
+| `is_premium` | `src/auth/profile.ts:28` — only at boot | Same as above. |
+
+### 9.3 3rd-party SDK uses without an Amply bridge
+
+| 3rd-party SDK | Call-site | Suggested wiring |
+|---|---|---|
+| RevenueCat purchase | `src/iap.ts:42`, `src/iap.ts:118` | No app-side `track('Purchase', ...)` found in proximity. Amply campaigns that target on purchase events need a bridge — see `references/third-party-event-bridges.md` § RevenueCat. Interactive mode can draft the wiring on request. |
+| Superwall paywall | `src/paywall.tsx:60` (`Superwall.shared.register`) | No `handleSuperwallEvent` delegate fires app-side track. Same — see `third-party-event-bridges.md` § Superwall. |
+| Sentry breadcrumbs | scattered | Diagnostic only; do not auto-mirror to Amply. |
+
+### 9.4 Property values that look unique-per-device
+
+(Values that may need verification — agent could not confirm from call-site context whether they are categorical or per-device unique.)
+
+| Key | Source | Note |
+|---|---|---|
+| `session_id` | `src/analytics/wrapper.ts:14` | Values appear UUID-like from sample; skipped per `skip-unique-id`. Verify if you intended this as a unique-per-session ID. |
+| `experiment_id` | `src/exp.ts:30` | Values appear categorical (`exp_paywall_v2`); kept. Verify this is not actually a runtime-generated UUID. |
+
+### 9.5 Other
+
+- Mixed event-name conventions detected — half the call sites use PascalCase, half snake_case. The wrapper normalises on the way to Amply; project event names left alone.
+- BI-only wrapper at `src/server-events.ts` — not extended for Amply (would not fire from the device). All Amply events go through the client-side wrapper.
+
+## 10. Verification handoff
 
 - Test event command (RN): `await Amply.track({ name: 'AmplyIntegrationTest', properties: {} });`
 - Test deeplink: see `references/deeplink-wiring.md` "Test commands".
@@ -125,6 +193,14 @@ Detected vendors:
 ## How the skill writes this file
 
 1. Each phase fills in its corresponding section.
-2. Sections that depend on later phases (e.g. §7 needs §3 to be done) are populated last.
-3. The skill writes the file once at the end of Phase 4 (so a partial run still produces a useful audit), and updates it again at the end of Phase 7 with the verification details.
+2. Sections that depend on later phases (e.g. § 6 needs § 3 done) are populated last.
+3. The skill writes the file once at the end of Phase 4 (so a partial run still produces a useful audit), and updates again at the end of Phase 7 with verification details.
 4. The file is left as a modified / untracked working-tree change. **Never auto-stage and never auto-commit** — the user decides whether to track this file in git.
+
+## Decision rules referenced
+
+- Events decision tree: `references/event-naming.md` § "Decision tree per detected call"
+- Property-writes decision tree: `references/property-writes.md`
+- System-event overlap aliases: `references/system-events.md`
+- 3rd-party SDK bridges: `references/third-party-event-bridges.md`
+- Scope discipline: `SKILL.md` § "Scope discipline" (skill does not refactor; observations, not auto-fixes)

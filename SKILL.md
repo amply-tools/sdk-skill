@@ -21,6 +21,8 @@ This skill walks the user through an opinionated, end-to-end integration:
 
 **Core principle:** never silently make a destructive choice. Detect → propose → confirm → execute.
 
+**Scope discipline:** this skill integrates Amply. It does **not** refactor the project's existing analytics, fix bugs in unrelated code, or propose architectural changes. When the audit detects something that looks suboptimal outside Amply's scope (one-shot writes of mutable properties, `*_changed` events without parallel property-writes, BI-only wrappers, mixed event-name conventions, 3rd-party SDK uses without an Amply bridge), it goes into `## 9. Observations` of the audit — a neutral fact the team can act on or ignore. Only items that are **prerequisites for Amply to function** (deeplink scheme registration, env-loading, listener wiring) go into `## 8. Required for Amply to work` as prescribed action items. Interactive mode may offer to draft optional bridges; autopilot only observes.
+
 ## When to Use
 
 - The user says "integrate Amply" / "add the Amply SDK" / mentions `@amplytools/react-native-amply-sdk`, `tools.amply:sdk-android`, `tools.amply:sdk-kmp`, or `AmplySDK` (Swift).
@@ -88,11 +90,21 @@ The resolved `envBlock` (or its absence) is the only output Phase 5 needs to con
 
 ### Phase 2 — Analytics audit
 
-Find existing analytics vendors, call sites, and user-property setters. See `references/analytics-detection.md` for ≥25 vendor fingerprints (Firebase Analytics, Amplitude, Mixpanel, Segment, RudderStack, PostHog, Heap, mParticle, Snowplow, TelemetryDeck, Countly, Sentry, Datadog RUM, New Relic, UXCam, Smartlook, Braze, Iterable, Airship, OneSignal, Customer.io, Intercom, Branch, AppsFlyer, Adjust, Kochava, Singular, RevenueCat / Adapty / Superwall purchase analytics).
+Find existing analytics call sites and classify each one. See `references/analytics-detection.md` for ≥25 vendor fingerprints plus per-language grep patterns.
 
-For every call site, capture **file:line plus the property keys and types passed** — Amply's Event Param rules will need this. Decide whether the project already has an analytics wrapper. **Default**: extend the existing wrapper. **Switch to a new wrapper** only if the existing one is server-only, BI-only, vendor-schema-typed in a way that doesn't translate, consent-gated in a way that would block Amply targeting events, or too high-volume to mirror without performance cost. State the exception you found.
+**Three classes of detect** (different audit tables, different decision trees):
 
-This is a multi-option decision — see Mode. In `autopilot`, default to extending the existing wrapper and log the choice.
+1. **Track-event calls** (`.track`, `.logEvent`, `.capture`, …) — go through the events decision tree in `references/event-naming.md` § "Decision tree per detected call". Result lands in audit § 2.1.
+2. **Property-write calls** (`.people.set`, `.setUserProperty`, `.identify(_, traits)`, `.sendTag`, …) — go through the property-writes decision tree in `references/property-writes.md`. Result lands in audit § 2.2.
+3. **3rd-party SDK uses** (`Purchases.shared.purchase()`, `Superwall.shared.register()`, `Adjust.trackEvent()`, …) — checked for a parallel app-side bridge. Gaps go to audit § 9.3 as Observations (per Scope discipline). See `references/third-party-event-bridges.md`.
+
+For every call site, capture **file:line plus the property keys and types passed** (and for property-writes, a sample of values where visible — needed for the unique-vs-categorical domain check). Audit rows record both the **Decision** (the outcome) and the **Why** (the rule that fired).
+
+**System-event overlap is the first rule the events tree applies.** Project events that overlap with Amply's auto-fired system events (`session_start` / `app_open` → `SessionStarted`, etc. — see `references/system-events.md`) are dropped, not mirrored. This is **not** optional — duplicates make campaign evaluation noisy.
+
+Decide whether the project already has an analytics wrapper. **Default**: extend the existing wrapper. **Switch to a new wrapper** only if the existing one is server-only, BI-only, vendor-schema-typed in a way that doesn't translate, consent-gated in a way that would block Amply targeting events, or too high-volume to mirror without performance cost. State the exception you found.
+
+This is a multi-option decision — see Mode. In `autopilot`, default to extending the existing wrapper and log the choice in audit § 7.
 
 **Mixed-mode wrappers:** if half the call sites use the typed enum and half pass bare strings (or pass an undeclared event name), do not "clean up" the call sites as part of the integration — that's a separate refactor with separate review risk. Extend the wrapper's runtime contract (it almost certainly accepts `string`) and leave the typing pass for a follow-up. Log this as a finding in the audit report.
 
@@ -104,11 +116,26 @@ This is a multi-option decision — see Mode. In `autopilot`, default to "match 
 
 ### Phase 3 — Event & Custom Property mapping
 
-Build a table — `event_name · count · sample file:line · property keys · forward to Amply?`. Mark high-leverage events (signup, paywall view, purchase, trial start / end, onboarding completion, content unlock, share, app open, error). **Do not** rename existing events; translate to PascalCase inside the wrapper for the Amply call only — see `references/event-naming.md`.
+Build the two audit tables produced by Phase 2 — events (§ 2.1) and user-property writes (§ 2.2). For each row, the Decision and Why come from the decision trees in `references/event-naming.md` and `references/property-writes.md`.
 
-Inventory user properties → Amply Custom Properties. Allowed value types: **`String` / `Number` / `Boolean` / `DateTime`** for native SDKs; **`string | number | boolean` only** for the RN SDK (no DateTime via the RN public surface). Anything else → flag as not-supported.
+**Do not** rename existing events in the project — translate to PascalCase inside the wrapper for the Amply call only.
+
+Inventory user properties → Amply Custom Properties. Allowed value types: **`String` / `Number` / `Boolean` / `DateTime`** for native SDKs; **`string | number | boolean` only** for the RN SDK (no DateTime via the RN public surface). Anything else → flag as not-supported or apply array-recipe (see `references/custom-properties.md`).
+
+**Hard-exclude defaults for Custom Properties** (also in `references/custom-properties.md`):
+- PII keys (email, phone, address, raw_ip, full_name, government_id) → strip / hash; never as Custom Property.
+- Unique-per-device or transient identifiers (raw user_id, device_id, advertising_id, session_id, order_id, transaction_id, UUID-shaped values) → skip. Exception: keys named `*_id` whose **values** are categorical (e.g. `screen_id: "paywall_coffee_goals_v2"`) — include after the domain check in `property-writes.md` § Decision tree step 2.
+- Free-form timestamps (sub-second precision, raw event timestamps) → skip. Baseline `*_at` properties (install_date, trial_ends_at, last_paywall_view_at, onboarding_completed_at) — supported via DateTime native / epoch number RN.
 
 Propose additional Custom Properties for targeting from `references/custom-properties.md` (`subscription_status`, `trial_ends_at`, `last_paywall_view_at`, `total_purchases`, `onboarding_completed`, `locale`, `install_date`, …). Surface explicitly that **"user fired event X N times" is not a built-in targeting condition** — counters must be maintained in app code and pushed as `*_count` Custom Properties when they change.
+
+**Phase 3 gap check** — before producing § 6 (Who/When/What):
+
+1. **Property-write ↔ event gap** — for every `*_changed` / `*_updated` event detected in Phase 2, verify a parallel property-write exists. If not, add to audit § 9.1 as Observation: "Event `X_changed` fires but no parallel property-write found; Amply campaigns targeting on `X` won't see the change."
+2. **Mutable-baseline one-shot writes** — for every property-write whose key matches the mutable baseline (`subscription_status`, `plan`, `is_premium`, `total_purchases`, …) but is written at only one site (init/login), add to audit § 9.2.
+3. **3rd-party bridge gaps** — for every detected 3rd-party SDK use (RC purchase, Superwall register, …) without an app-side track call in proximity, add to audit § 9.3 with the suggested wiring from `references/third-party-event-bridges.md`.
+
+Per Scope discipline, these are **observations**, not action items. Interactive mode may offer to draft the bridges; autopilot only records.
 
 ### Phase 4 — Who / When / What readiness audit
 

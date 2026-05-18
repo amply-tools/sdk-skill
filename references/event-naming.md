@@ -1,6 +1,45 @@
-# Event naming conventions
+# Event naming and decision tree
 
-## The two conventions
+## Decision tree per detected call
+
+For each detected call from existing analytics (event-track or property-write), apply rules in order. **First match wins.** The audit captures both the resulting Decision and the Why (which rule fired).
+
+### Step 1 — Classify the call
+
+- `.track()` / `.logEvent()` / `.capture()` / `.recordEvent()` / `.signal()` etc. → **Events branch** (continue with §2 below)
+- `.people.set()` / `.setUserProperties()` / `.setUserProperty()` / `.identify(_, traits)` / `.sendTag()` etc. → **Property-writes branch** (see `references/property-writes.md`)
+- 3rd-party SDK call (`Purchases.shared.purchase()`, `Superwall.shared.register()`, etc.) → **3rd-party bridge check** (see `references/third-party-event-bridges.md`)
+
+### Step 2 — Events branch (ordered rules, first match wins)
+
+1. **System-event overlap** — does the event name match an alias of Amply's auto-fired system events (e.g. `session_start` / `app_open` → `SessionStarted`)? See `references/system-events.md` § Overlap table.
+   → `skip-system-overlap` — do not mirror to Amply; campaigns target the system event directly.
+
+2. **Property-change event** — does the name end in `_changed` / `_updated` / `_modified`, AND a parallel property-write call exists in the same file / proximate handler?
+   → `skip-property-change-event` — drop. The property write is the single source of truth; the event is redundant.
+   → **Exception:** if the event's `properties` payload carries keys NOT trivially derivable from `(key, oldValue, newValue, timestamp)` (e.g. `source: 'restore_purchases'`, `discount_code: 'BLACK40'`, `rollout_cohort: 'beta-7'`) — then `forward-translated-renamed`: keep it but rename to a past-tense action (`SubscriptionStatusChanged` → `PlanUpgraded`) and strip the now-redundant `key`/`from`/`to` keys at the wrapper.
+
+3. **Property-change event WITHOUT parallel property-write** — `*_changed` event fires, but no matching `.setCustomProperty` / `.people.set` / `.setUserProperty` call is found.
+   → still `skip-property-change-event` for the event itself, BUT also emit an Observation in the audit: "Event `X_changed` fires at file:line but no parallel property-write found. Amply campaigns targeting on `X` won't see the change."
+
+4. **PII in name or property keys** — event name or any property key matches PII patterns (email, phone, address, raw_ip, full_name, government_id) or values look identifying.
+   → `skip-pii` for the event; OR `forward-translated` but with the PII keys stripped at the wrapper. Note in audit.
+
+5. **High-cardinality property keys** — event carries `orderId` / `transactionId` / `sessionId` / `request_id` / raw UUID values as properties.
+   → `forward-translated`, but drop high-cardinality keys at the wrapper. These belong as event-param filters with `is set / is not set` only, never targeting by exact value. Note in audit.
+
+6. **BI-only / server-driven / batched** — event fires only from server-side, or from a wrapper that batches with significant delay (see `references/analytics-detection.md` § "When NOT to extend the existing wrapper").
+   → `skip-bi-only` — campaigns need near-real-time triggering; batched events break the model.
+
+7. **High-leverage list match** — name (case-insensitive, after normalisation) matches a high-leverage pattern: `signup`, `paywall_view`, `paywall_shown`, `purchase`, `trial_start`, `trial_end`, `onboarding_complete`, `content_unlock`, `share`, `app_open` (note overlap with §1), `error`.
+   → `forward-translated` + mark for campaign use in audit § Who/When/What.
+
+8. **Otherwise** — default-keep.
+   → `forward-translated` — let the wrapper translate the name to PascalCase and pass through.
+
+The audit row gets BOTH the resulting Decision (`forward-translated` / `skip-system-overlap` / `skip-pii` / …) and a short Why (which rule fired, in one phrase).
+
+## The two naming conventions
 
 Amply's recommended convention:
 

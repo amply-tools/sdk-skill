@@ -15,8 +15,9 @@ This matters for the audit: if the project's existing analytics fires its own ve
 | `SessionFinished` | At session end | — |
 | `CampaignShown` | When a campaign action fires | `campaignId` |
 | `EventTriggered` | Meta-event for every `track()` call | mirrors the triggering event's name |
+| `CustomPropertyChanged` | When any Custom Property is set, updated, removed, or cleared (deduplicated — only fires when `oldValue != newValue`) | `key: String`, `oldValue: Any` (omitted on first set), `newValue: Any` (omitted on remove/clear), `timestamp: Long` (epoch millis) |
 
-(Source: SDK `events/Event.kt → object SystemEvents`. List reflects the SDK at time of writing — future SDK versions may add events; check the constant file in the SDK source if in doubt.)
+(Source: SDK `events/Event.kt → object SystemEvents`. List reflects the SDK at time of writing — future SDK versions may add events; check the constant file in the SDK source if in doubt. `CustomPropertyChanged` requires SDK with that constant present — confirm during integration.)
 
 ## Overlap with project's existing analytics
 
@@ -34,6 +35,8 @@ When the audit (Phase 2) finds these patterns in the project, treat them as syst
 Campaigns triggering on session lifecycle work out of the box — point the **When** at `SessionStarted` (type=system) and the campaign fires every session, no app-side wiring needed.
 
 When the audit captures a `*_count` Custom Property that depends on session count (e.g. `paywall_views_count` incremented every session), the increment can hang off the SDK's `SessionStarted` system event in app code — no custom `app_open` event needed.
+
+**`CustomPropertyChanged` enables property-change-driven campaigns without custom events.** Where previously a campaign like "fire deeplink when subscription_status changes to 'expired'" required the app to fire a custom `*_changed` event after each `setCustomProperty` call, now the SDK emits `CustomPropertyChanged` (type=system) automatically. The campaign **When** can target this event directly with Event Param filters on `key === 'subscription_status'` AND `newValue === 'expired'`. Dedup is built in (the SDK only fires when `oldValue != newValue`), and the property persistence is guaranteed independently of the dispatch — a listener failure can't lose the write.
 
 ## What to do if the team really wants their own session event
 

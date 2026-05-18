@@ -85,7 +85,9 @@ mixpanel.track('subscription_status_changed', { from: prev, to: 'active' });
 
 When the audit detects both, the property-write goes to the User-property-writes table (mirror) and the event goes through the events decision tree. The events tree has a dedicated branch for `*_changed` / `*_updated` events — see `references/event-naming.md` § decision tree.
 
-By default the `*_changed` event is **dropped** for Amply: the property write is the single source of truth, and the parallel event is redundant. Exception: if the event carries side-info that the property value alone cannot express (e.g. `source: 'restore_purchases'`, `discount_code: 'BLACK40'`, `rollout_cohort: 'beta-7'`) — then it stays, renamed to a past-tense action name (e.g. `PlanUpgraded`), with the redundant `from`/`to`/`key` keys stripped in the wrapper.
+By default the `*_changed` event is **dropped** for Amply. The SDK fires `CustomPropertyChanged` (type=system) automatically on every `setCustomProperty` with the full diff payload `{key, oldValue?, newValue?, timestamp}` and deduplication (only emits when `oldValue != newValue`). Campaigns target `CustomPropertyChanged` directly with Event Param filters on `key` and `newValue` — no app-side `*_changed` event needed.
+
+Exception: if the event carries side-info that the property value alone cannot express (e.g. `source: 'restore_purchases'`, `discount_code: 'BLACK40'`, `rollout_cohort: 'beta-7'`) — then the event stays, renamed to a past-tense action name (e.g. `PlanUpgraded`), with the redundant `from`/`to`/`key` keys stripped in the wrapper. `CustomPropertyChanged` still fires under it.
 
 ## Property-write ↔ event gap check
 

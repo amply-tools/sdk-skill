@@ -2,6 +2,26 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — Unreleased
+
+### Added
+
+- **Mode switch** — `autopilot` vs `interactive`, resolved once at the top of the run (message arg / env var `AMPLY_SKILL_MODE` / one-time prompt). Every multi-option phase decision consults this single value.
+- **Phase 1b "Amply app resolution"** — calls `amply_ensure_app` once after platform detection and produces the `envBlock` that Phase 5 consumes. Handles four statuses: `created`, `reused`, `reused_new_key`, `conflict_cross_project`.
+
+### Changed
+
+- Phase 5 no longer discovers keys; consumes the pre-resolved `envBlock` from Phase 1b.
+- `references/amply-mcp.md` tool table updated for `amply_find_application` (read) and `amply_ensure_app` (idempotent primary entry).
+
+### Deprecated
+
+- `amply_bootstrap_for_app` — now a thin wrapper around `amply_ensure_app({ ..., mintNewKey: true })`. Will be removed in a future release; use `amply_ensure_app` directly.
+
+### Fixed
+
+- Re-running the skill against an already-integrated project no longer mints duplicate API keys silently. `amply_ensure_app` defaults to `mintNewKey: false`; mint-on-reuse is now opt-in or explicit (autopilot logs the decision; interactive asks).
+
 ## [0.1.0] — Unreleased
 
 Initial draft. Skill scaffold authored, codex-reviewed twice, source-of-truth pass against the SDK source code, **two Phase D field trials against a real RN + Expo project complete**. Thirteen skill-level gaps surfaced and patched in-session. See `CONTRIBUTING.md` Review log for details. Still pending: Phase D scenarios 2–7, install validation on a clean machine, public repo creation.

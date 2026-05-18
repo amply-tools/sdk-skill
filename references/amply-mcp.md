@@ -18,7 +18,7 @@ Expected line if connected:
 amply: ... ✓ Connected
 ```
 
-If present, you have access to a known set of tools all prefixed `amply_`. The 12 v1 tools:
+If present, you have access to a known set of tools all prefixed `amply_`. The tools:
 
 | Tool | Use it when |
 |---|---|
@@ -29,11 +29,13 @@ If present, you have access to a known set of tools all prefixed `amply_`. The 1
 | `amply_logout` | Done with the session (rare during integration). |
 | `amply_list_projects` | You need a `projectId` and don't have one. |
 | `amply_create_project` | The user's org has no project, or they want a dedicated one. |
-| `amply_list_applications` | You have a `projectId` and want to check whether the app's `bundleId` is already registered. |
-| `amply_get_application` | You have an Application UUID and need its API keys. |
+| `amply_list_applications` | You have a `projectId` and want to enumerate apps under it. |
+| `amply_find_application` | You have a `bundleId + platform` and want to discover whether it's already registered anywhere in the org (with `projectId` to scope). Pure read. |
+| `amply_get_application` | You have an Application UUID and need its metadata. |
 | `amply_create_application` | First-time registration of the app. Returns the first API key in the response. |
 | `amply_create_api_key` | Need an additional key (key rotation, separate scope). |
-| **`amply_bootstrap_for_app`** | **Recommended one-shot for AI-agent integration** — ensures project + application + first key in one tool call, returns a ready-to-paste `.env.local` block. |
+| **`amply_ensure_app`** | **Recommended primary entry** — idempotent project + app + key resolution with cross-project conflict guard and explicit `mintNewKey` opt-in. Returns one of `created` / `reused` / `reused_new_key` / `conflict_cross_project`. |
+| `amply_bootstrap_for_app` | *(deprecated — calls `amply_ensure_app({ ..., mintNewKey: true })` internally; will be removed in a future release).* |
 
 ## If the MCP is NOT connected
 
@@ -47,44 +49,70 @@ After install, the user must restart the agent session for the MCP to register.
 
 In autonomous mode (sub-agent, batch job, CI) — do **not** install the MCP without explicit consent. Same rule as Context7 in `references/context7-mcp.md`. Fall back to the manual flow: tell the user the values you need (`appId`, `apiKeyPublic`, optional `apiKeySecret`) and where to find them in `app.amply.tools/applications/<bundleId>`, then write the `.env.local` block ourselves once they paste them in.
 
-## How this changes Phase 5 (Wrapper implementation)
+## How this drives Phase 1b (Amply app resolution) and Phase 5 (Wrapper implementation)
 
-When the MCP is available:
+When the MCP is available, Phase 1b owns app resolution and produces the `envBlock` Phase 5 will use.
 
 1. Call `amply_status` — verify session.
 2. If not authenticated, ask the user (or, with permission, call `amply_signup` / `amply_login`).
-3. Call `amply_bootstrap_for_app` with the project's bundleId + platform (detected in Phase 1):
+3. Call `amply_ensure_app` with the project's bundleId + platform (detected in Phase 1):
 
 ```
-amply_bootstrap_for_app({
+amply_ensure_app({
   bundleId: "<bundle-id-from-Info.plist-or-AndroidManifest>",
   name: "<human-readable app name>",
   platform: "<iOS | Android>",
-  projectName: "<optional, defaults to org's first project>"
+  projectName: "<optional, defaults to oldest project>",
+  mintNewKey: false,
+  allowDuplicateAcrossProjects: false
 })
 ```
 
-4. The tool returns:
+4. The tool returns one of:
 
 ```json
+// status: "created" — first key returned inline
 {
-  "status": "created" | "existing",
+  "status": "created",
   "project": { "id": "...", "name": "..." },
-  "application": { "id": "...", "bundleId": "...", "name": "...", "platform": "..." },
-  "firstApiKey": { "public": "...", "secret": "..." } | null,
-  "envBlock": "# Amply (iOS). Do not commit.\nEXPO_PUBLIC_AMPLY_APP_ID=...\n..."
+  "application": { ... },
+  "firstApiKey": { "public": "...", "secret": "..." },
+  "envBlock": "# Amply (iOS). Do not commit.\n..."
+}
+
+// status: "reused" — existing app, no key (secrets are not in the list endpoint)
+{
+  "status": "reused",
+  "application": { ... },
+  "firstApiKey": null,
+  "envBlock": "...<paste from Amply admin>...",
+  "hint": "Existing application reused. ... re-invoke with mintNewKey:true ..."
+}
+
+// status: "reused_new_key" — opt-in mint of a fresh secret on the existing app
+{
+  "status": "reused_new_key",
+  "firstApiKey": { "public": "...", "secret": "..." },
+  "envBlock": "..."
+}
+
+// status: "conflict_cross_project" — same bundleId+platform in a different project
+{
+  "status": "conflict_cross_project",
+  "existingApplicationProject": { "id": "...", "name": "..." },
+  "hint": "... pass `projectName` matching the existing project, or set `allowDuplicateAcrossProjects: true` ..."
 }
 ```
 
-5. If `status` is `"existing"` and `firstApiKey` is `null`, call `amply_create_api_key({ applicationId: application.id })` to mint a fresh secret (existing secrets are not returned by list endpoints).
-6. Paste `envBlock` into `.env.local` (or the project's equivalent). For non-Expo projects, adapt the env var prefix to match what the project's wrapper code reads.
+5. Per Phase 1b in SKILL.md: in `interactive` mode ask the user before minting; in `autopilot`, re-invoke with `mintNewKey: true` on the `reused` branch and log the decision. On `conflict_cross_project`, STOP and surface to the user.
+6. Paste `envBlock` into `.env.local` (or the project's equivalent) in Phase 5. For non-Expo projects, adapt the env var prefix to match what the project's wrapper code reads.
 
-Record this in `amply-audit.md` under "Toolchain":
+Record in `amply-audit.md` under "Toolchain":
 
 ```
-Amply MCP:    connected — bootstrap via amply_bootstrap_for_app
+Amply MCP:    connected — bootstrap via amply_ensure_app
 Application:  <bundleId> (<UUID>) under project "<projectName>" (<UUID>)
-Keys source:  amply_bootstrap_for_app (status=<created|existing>)
+Keys source:  amply_ensure_app (status=<created|reused|reused_new_key>)
 ```
 
 ## Error codes — what to do
@@ -93,7 +121,7 @@ Keys source:  amply_bootstrap_for_app (status=<created|existing>)
 |---|---|---|
 | `auth_required` | No session / session expired and refresh failed. | Re-run `amply_login` (or `amply_signup` if new). |
 | `invalid_credentials` | Login rejected. | Ask user for correct password, or signup. |
-| `conflict` | `bundleId + platform` already registered. | Use `amply_get_application` / `amply_list_applications` to find the existing one. |
+| `conflict` | `bundleId + platform` already registered. | Use `amply_find_application` to discover where, then `amply_ensure_app` with the right `projectName`. |
 | `not_found` | Bad UUID, or you don't have access. | Re-list to find the correct id. |
 | `validation_error` | Backend rejected input. | The `message` field describes the issue. |
 | `access_denied` | Access control denied access. | Verify you're in the right org via `amply_whoami`. |
@@ -103,7 +131,8 @@ Keys source:  amply_bootstrap_for_app (status=<created|existing>)
 
 ## Anti-patterns
 
-- ❌ Calling `amply_list_applications` without `projectId` — the backend requires it.
-- ❌ Caching secrets from `amply_list_applications` — the list endpoint **does not** include secrets. Use `amply_get_application` or `amply_create_application`/`_api_key` responses.
+- ❌ Calling `amply_list_applications` without `projectId` — the backend requires it. Use `amply_find_application` for cross-project search.
+- ❌ Caching secrets from list endpoints — they **do not** include secrets. Secrets are only in `applicationCreate` and `apiKeyCreate` mutation responses.
 - ❌ Skipping `amply_status` and immediately calling authenticated tools — wastes a network call on a guaranteed `auth_required`.
 - ❌ Calling `amply_signup` if `amply_login` would do — accounts are not free to create programmatically in many tenants.
+- ❌ Re-running the skill against an already-integrated project and minting a new key on every run. `amply_ensure_app` defaults to `mintNewKey: false` for exactly this reason — only opt in when the user has lost access to the old secret.

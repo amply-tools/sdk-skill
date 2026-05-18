@@ -33,6 +33,21 @@ This skill walks the user through an opinionated, end-to-end integration:
 
 The workflow below uses tool-neutral verbs — *open*, *modify*, *grep*, *run shell command*. If your host needs an explicit translation between named tools, see `references/codex-tools.md`.
 
+## Mode
+
+The skill operates in one of two modes:
+
+- **`autopilot`** — at every multi-option decision point, the skill picks the documented default and logs the choice in the final audit. No questions to the human. Use this for batch / overnight / CI runs.
+- **`interactive`** — at every decision with 2 or more valid options, the skill presents them to the human and waits for a selection. Use this when a human is actively reviewing each step.
+
+Resolve the mode in this order; use the first hit:
+
+1. The invoking message explicitly says `mode: autopilot` or `mode: interactive`.
+2. The env var `AMPLY_SKILL_MODE` is set to one of those values.
+3. Ask the human once: "Run autopilot or interactive?" — record the answer for the rest of the run. Skip the question if the agent context is clearly autonomous (batch job, no terminal attached).
+
+Every phase below that has 2+ valid options consults this single value. Do not re-ask per phase.
+
 ## Workflow
 
 The workflow runs Phase 0 (toolchain check) once, then the nine main phases. Numbering uses `2.5` and `5.5` for sub-steps that piggyback on the preceding phase. Run all phases on a fresh integration; returning users may re-run individual phases.
@@ -50,17 +65,42 @@ Identify the primary platform, package manager, and navigation library. See `ref
 
 **For RN projects: identify the flavour precisely** — Pure Bare RN, Bare RN + Expo Modules, Expo Prebuild Workflow, or Expo Managed. The check is `git ls-files ios/ android/`: hand-managed native folders → "no prebuild ever", regardless of whether `expo` is in `package.json`. This single distinction drives whether you touch `app.json` plugins and whether `expo prebuild` is safe to run.
 
+### Phase 1b — Amply app resolution
+
+After Phase 1 has detected `platform`, `bundleId`, and a project name, resolve the Amply application **once**, here, before any wrapper or key work in later phases.
+
+If the Amply MCP (Phase 0) is connected:
+
+1. Call `amply_ensure_app({ bundleId, platform, name, projectName?, mintNewKey: false })`.
+2. Branch on `result.status`:
+   - **`created`** — the app didn't exist; backend returned the first key inline. Carry the returned `envBlock` into Phase 5.
+   - **`reused`** — the app already exists; no key was returned (the list endpoint doesn't expose secrets). Consult mode:
+     - `interactive`: ask the human — "Existing Amply app found. (1) Mint a new key now, (2) proceed with placeholder values for you to paste from the Amply admin."
+     - `autopilot`: re-invoke `amply_ensure_app({ ...same, mintNewKey: true })`. Log "auto-minted new key for reused app" in the audit. Carry the result.
+   - **`reused_new_key`** — accept and carry to Phase 5.
+   - **`conflict_cross_project`** — STOP. The same `bundleId+platform` is registered in a different project than the one resolved. Surface to the user:
+     - `interactive`: ask which project to use; rerun with the correct `projectName`.
+     - `autopilot`: fail loudly with the project info from the result and a hint to rerun with the right `projectName` or `allowDuplicateAcrossProjects: true`.
+
+If the MCP is not connected, defer to Phase 5's manual-paste fallback (no change there).
+
+The resolved `envBlock` (or its absence) is the only output Phase 5 needs to consume. Phase 5 no longer discovers keys.
+
 ### Phase 2 — Analytics audit
 
 Find existing analytics vendors, call sites, and user-property setters. See `references/analytics-detection.md` for ≥25 vendor fingerprints (Firebase Analytics, Amplitude, Mixpanel, Segment, RudderStack, PostHog, Heap, mParticle, Snowplow, TelemetryDeck, Countly, Sentry, Datadog RUM, New Relic, UXCam, Smartlook, Braze, Iterable, Airship, OneSignal, Customer.io, Intercom, Branch, AppsFlyer, Adjust, Kochava, Singular, RevenueCat / Adapty / Superwall purchase analytics).
 
 For every call site, capture **file:line plus the property keys and types passed** — Amply's Event Param rules will need this. Decide whether the project already has an analytics wrapper. **Default**: extend the existing wrapper. **Switch to a new wrapper** only if the existing one is server-only, BI-only, vendor-schema-typed in a way that doesn't translate, consent-gated in a way that would block Amply targeting events, or too high-volume to mirror without performance cost. State the exception you found.
 
+This is a multi-option decision — see Mode. In `autopilot`, default to extending the existing wrapper and log the choice.
+
 **Mixed-mode wrappers:** if half the call sites use the typed enum and half pass bare strings (or pass an undeclared event name), do not "clean up" the call sites as part of the integration — that's a separate refactor with separate review risk. Extend the wrapper's runtime contract (it almost certainly accepts `string`) and leave the typing pass for a follow-up. Log this as a finding in the audit report.
 
 ### Phase 2.5 — Privacy & consent gating
 
 See `references/consent-and-privacy.md`. Detect the consent framework (ATT, GDPR / UMP, custom managers, OneTrust / Didomi / Iubenda). Decide with the user whether Amply tracking is gated by the same flag — default **yes** for events containing identifiers, **no** for purely behavioural events without PII. Strip / hash PII at the wrapper. On logout, call `setUserId(null)` + `clearCustomProperties()`.
+
+This is a multi-option decision — see Mode. In `autopilot`, default to "match the project's existing posture, do not tighten it" and log the choice.
 
 ### Phase 3 — Event & Custom Property mapping
 
@@ -97,7 +137,9 @@ Initialise Amply in the right place using **the platform-correct API** (see SDK 
 
 Pull keys from env / build config. **Refuse** to write keys inline — even if the project's own precedent hard-codes other vendors' keys (RevenueCat / Amplitude / etc.) inline. For projects with no existing env-loading pipeline, do one of: (a) suggest adding `react-native-config` / `EXPO_PUBLIC_*` / `BuildConfig` field, and write the Amply call against it with a clear TODO at the call-site; (b) document the choice prominently in the audit and let the user wire env loading on their own next pass. Never silently inline an Amply key just because the project does it elsewhere — `apiKeySecret` in particular must be treated as a real secret.
 
-**Source of the keys:** if the Amply MCP is connected (Phase 0), call `amply_bootstrap_for_app({bundleId, name, platform, projectName?})` — it returns a ready-to-paste `envBlock`. If the MCP is not connected, prompt the user for `appId` / `apiKeyPublic` / `apiKeySecret` and tell them where to find them in the Amply admin panel.
+**Source of the keys:** by the time Phase 5 runs, Phase 1b has already produced an `envBlock` via `amply_ensure_app` (or determined that the MCP isn't connected). Use the `envBlock` as-is. If Phase 1b couldn't run (no MCP), prompt the user for `appId` / `apiKeyPublic` / `apiKeySecret` and tell them where to find them in the Amply admin panel.
+
+For env-loading library choice when the project has none: **this is a multi-option decision — see Mode.** In `autopilot`, default to (a) suggesting the platform-idiomatic config lib (`react-native-config` / `EXPO_PUBLIC_*` / `BuildConfig` field) and writing the Amply call against it with a TODO at the call-site.
 
 Add the package via the project's manager (`yarn add` / Gradle dep / Pod / SPM).
 

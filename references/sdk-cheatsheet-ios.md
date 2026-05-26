@@ -99,7 +99,7 @@ There is no `AmplySDK.shared` and no `AmplySDK.initialize(...)` — those are co
 |---|---|---|
 | **Dev / staging only** | local builds, internal TestFlight builds with throwaway keys | `xcconfig`-driven `Info.plist` keys (`AmplyAppId`, `AmplyKeyPublic`, `AmplyKeySecret`). Add `Amply.xcconfig` to `.gitignore` and check in `Amply.xcconfig.template`. Acceptable because the keys are not the prod ones. |
 | **Production with CI** | App Store / Enterprise builds | Inject the prod `apiKeySecret` at archive time from CI secrets — write `Amply.xcconfig` (or run a build phase script that patches `Info.plist`) just before `xcodebuild archive`. The repo never sees the prod value. Still extractable from the `.ipa`. |
-| **Production, high-security** | regulated apps, fintech, healthcare | Don't ship `apiKeySecret` at all. Have the app authenticate to your own backend, which then exchanges for a short-lived session token the SDK uses. Requires SDK + backend coordination that isn't covered by this skill — flag it as out-of-scope and link the design discussion to your security team. |
+| **Production, high-security** | regulated apps, fintech, healthcare | If your threat model requires `apiKeySecret` to not exist on-device at all, the integration cannot proceed without SDK + Amply-backend support that does not currently ship as a documented public API. Open a conversation with your security team and Amply support before designing around this — do not ship a workaround that *looks* like a session-exchange while still embedding the secret. |
 
 **Default for autopilot:** dev/staging tier (xcconfig-driven `Info.plist`) with a `TODO(amply): rotate via CI before App Store submission` line in `AmplyKeys.swift`. Surface the tier choice in the audit report so the team can opt up.
 
@@ -117,7 +117,7 @@ New SwiftUI templates ship without a static `Info.plist`. Two paths:
 
 ## URL-scheme registration for Amply Deeplink campaigns
 
-Phase 6's `DeepLinkListener` is invoked by Amply's campaign engine — but for **local development** you'll also want `xcrun simctl openurl` to deliver the URL to the app. That requires the scheme to be registered as `CFBundleURLTypes` in `Info.plist`. On modern Xcode (`GENERATE_INFOPLIST_FILE = YES`) this can be done one of two ways:
+Phase 6's `DeepLinkListener` is invoked by Amply's campaign engine — but for **local development** you'll also want `xcrun simctl openurl` to deliver the URL to the app. That requires the scheme to be registered as `CFBundleURLTypes`. There is no flat `INFOPLIST_KEY_*` for `CFBundleURLTypes` (the value is an array of dicts), so projects with `GENERATE_INFOPLIST_FILE = YES` must go through path 2 above (partial Info.plist):
 
 ```xml
 <!-- partial Info.plist (path 2 above) -->
@@ -131,14 +131,6 @@ Phase 6's `DeepLinkListener` is invoked by Amply's campaign engine — but for *
   </dict>
 </array>
 ```
-
-Or via build settings if you're keeping `GENERATE_INFOPLIST_FILE = YES`:
-
-```
-INFOPLIST_KEY_CFBundleURLTypes = ...   // does not exist as a flat key — must go through path 2.
-```
-
-There is no `INFOPLIST_KEY_*` for `CFBundleURLTypes` (it's an array of dicts). If you need URL schemes registered, you must use path 2 — a partial Info.plist.
 
 **Important:** `simctl openurl yourappscheme://...` exercises **SwiftUI's `onOpenURL`**, not Amply's `DeepLinkListener`. The Amply listener fires only when the SDK's campaign engine receives a `Deeplink` action from a configured campaign. Phase 6 should test both:
 

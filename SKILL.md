@@ -61,6 +61,22 @@ Before anything else, check two MCPs:
 1. **Context7** — mirrors live `docs.amply.tools`; authoritative for SDK reference questions when present. See `references/context7-mcp.md` for detection + free install command + autonomous-mode fallback.
 2. **Amply MCP** (`@amplytools/amply-mcp`) — direct backend automation: signup, login, register applications, fetch `apiKeyPublic` + `apiKeySecret`. When connected, the skill can complete a full integration without the user ever opening the Amply admin UI. See `references/amply-mcp.md` for detection (`claude mcp list | grep -i amply`), install (`claude mcp add amply -- npx -y @amplytools/amply-mcp`), the 12 tools available, and the recommended one-shot `amply_bootstrap_for_app`. Same autonomous-mode rule as Context7 — don't install MCPs without explicit consent.
 
+### Phase 0.5 — Goal sanity check
+
+**Before any discovery work**, restate the user's goal and map it onto what Amply actually does. The most expensive failure mode is integrating Amply for a goal it cannot serve. Use this 5-point checklist:
+
+| Goal phrasing | Amply role | Host-app role |
+|---|---|---|
+| "Show a custom popup to the user" | ❌ Amply does not render UI. | Host renders the popup. Amply fires a Deeplink at the right moment; host responds with whatever screen the deeplink routes to. |
+| "A/B test which popup variant a user sees" | ⚠ partial. Amply chooses *which* deeplink fires (per-campaign), can target on Custom Properties. **Amply does not split traffic.** | Host assigns the bucket (typically a coin-flip persisted in storage + pushed as a Custom Property) and renders both variants. |
+| "Send a push notification / email" | ❌ Not Amply. | Use a push provider / email provider. Amply can deeplink users to a screen *after* they open the app. |
+| "Throttle prompts / rate-limit asks" | ✅ Repeat Rules + Frequency Limits on the campaign. | Implement the deeplink target. |
+| "Trigger an in-app action based on user history" | ✅ via Custom Property targeting + a triggering event. | Fire the triggering event; maintain the relevant Custom Properties; implement the deeplink target. |
+
+In `autopilot`, write one paragraph at the top of the audit: "Your stated goal `<X>` maps onto Amply as follows: Amply will <Y>, your app must <Z>." If any element of the goal lands in the ❌ column, surface that as the first item of the audit. The integration may still be worth doing for the parts Amply *can* do, but the team needs to know upfront where they'll need their own infrastructure.
+
+In `interactive`, present the table to the human and ask "does this match what you want Amply for?" before continuing.
+
 ### Phase 1 — Discovery + version gating
 
 Identify the primary platform, package manager, and navigation library. See `references/platform-detection.md`. **Stop and warn** if the project fails any version gate (RN < 0.79, RN New Architecture not enabled, Expo SDK < 53, Android `minSdk` < 24 for RN target / < 21 for KMP, iOS deployment target < 15.1 for RN target / < 14.1 for KMP). Echo the detected stack back as one block; ask once: "is this right?"
@@ -73,6 +89,7 @@ After Phase 1 has detected `platform`, `bundleId`, and a project name, resolve t
 
 If the Amply MCP (Phase 0) is connected:
 
+0. **Check auth state first.** Call `amply_status` (or `amply_whoami`). If `authenticated: false`, the autopilot default is to invoke `amply_signup({ email: "<bundleId>-<YYYY-MM-DD>@<project-domain>", password: <generated>, name: "<integrator-name>", organization: "<project-name>" })` and log the credentials in the audit so the team can take ownership of the org. If `authenticated: true` but the user is a stranger to the project (e.g. you're integrating into a team app and the MCP is logged in as a personal account), `interactive`: ask which org to use; `autopilot`: proceed under the existing user and log it.
 1. Call `amply_ensure_app({ bundleId, platform, name, projectName?, mintNewKey: false })`.
 2. Branch on `result.status`:
    - **`created`** — the app didn't exist; backend returned the first key inline. Carry the returned `envBlock` into Phase 5.
@@ -84,9 +101,16 @@ If the Amply MCP (Phase 0) is connected:
      - `interactive`: ask which project to use; rerun with the correct `projectName`.
      - `autopilot`: fail loudly with the project info from the result and a hint to rerun with the right `projectName` or `allowDuplicateAcrossProjects: true`.
 
-If the MCP is not connected, defer to Phase 5's manual-paste fallback (no change there).
+If the MCP is not connected — the manual-paste path. **The skill's manual path matches the MCP path step-for-step; users without the MCP still need account → project → application → key**:
 
-The resolved `envBlock` (or its absence) is the only output Phase 5 needs to consume. Phase 5 no longer discovers keys.
+1. **Sign up** at https://app.amply.tools/signup (or log in). Note: organization is created at the same time; the email is the org owner.
+2. **Create a project.** Free orgs are limited to a small number; reuse where possible.
+3. **Register the application** under the project. Required: `bundleId` (must match `PRODUCT_BUNDLE_IDENTIFIER` exactly) + `platform` (`iOS`/`Android`). The admin returns an `appId` (UUID, **not** the bundleId) plus the first API key inline.
+4. **⚠ `apiKeySecret` is shown ONCE at creation.** Copy it to a secure store immediately — there is no way to retrieve it later. If it's lost, mint a new key (orphans the previous one).
+
+Carry all three values (`appId`, `apiKeyPublic`, `apiKeySecret`) into Phase 5 as if the MCP had returned them. Note in the audit that the manual path was used and the team needs to revoke any orphan keys later.
+
+The resolved `envBlock` (or the three manually-pasted values) is the only output Phase 5 needs to consume. Phase 5 no longer discovers keys.
 
 ### Phase 2 — Analytics audit
 
@@ -176,15 +200,21 @@ See `references/lifecycle-and-state.md`. Hold strong references to the Amply ins
 
 ### Phase 6 — Deeplink listener wiring
 
-Use `references/deeplink-wiring.md` for the detected navigation library. Generate the listener with the **platform-correct signature**:
+Use `references/deeplink-wiring.md` for the detected navigation library. Phase 6 has two parts — the OS-level scheme registration and the Amply-listener wiring — and they're verified by different commands.
+
+**6a — Scheme registration.** Before Amply can route a Deeplink campaign action into your app, the OS has to know the scheme. iOS: `CFBundleURLTypes` in `Info.plist` (see iOS cheatsheet for the modern Xcode 14+ wrinkle — `INFOPLIST_KEY_CFBundleURLTypes` does not exist as a flat key; use a partial Info.plist). Android: `<intent-filter>` on the launcher activity. Verify with:
+- iOS: `xcrun simctl openurl booted "<scheme>://test"` — exercises SwiftUI's `onOpenURL`. Failure (`OSStatus -10814`) means the scheme isn't registered.
+- Android: `adb shell am start -a android.intent.action.VIEW -d "<scheme>://test" <package>`.
+
+**6b — Amply listener wiring.** Generate the listener with the **platform-correct signature**:
 
 - **Kotlin** — implement `tools.amply.sdk.actions.DeepLinkListener` with `fun onDeepLink(url: String, info: Map<String, Any>): Boolean`. Register via `amply.registerDeepLinkListener(listener)`. Return `true` when handled.
 - **Swift** — conform to `DeepLinkListener`; `func onDeepLink(url: String, info: [String: Any]) -> Bool`. Hold a strong reference. Return `true` when handled.
 - **RN** — `const unsubscribe = await Amply.addDeepLinkListener(event => { ... })`. Capture `unsubscribe` and call it on teardown.
 
-Provide test commands:
-- iOS: `xcrun simctl openurl booted "<deeplink>"`
-- Android: `adb shell am start -a android.intent.action.VIEW -d "<deeplink>" <package>`
+`simctl openurl` / `adb am start` only verify 6a — the OS scheme. The Amply listener only fires when the SDK's campaign engine emits a `Deeplink` action via a configured campaign. To verify 6b end-to-end, fire the triggering event from the app and confirm the listener's `onDeepLink` was called (log it in the listener implementation; observe via OSLog on iOS, logcat on Android). **Skipping 6b verification is the #1 way a deeplink integration ships looking healthy but actually broken at runtime.**
+
+**Listener placement note.** The listener is global to the app, not per-screen. Register it once at app startup and have it route into the navigator from there. If you attach the deeplink-handling sheet inside a screen view, deeplinks that arrive while the user is on a different screen will fire but the UI won't respond.
 
 ### Phase 7 — Verification handoff
 

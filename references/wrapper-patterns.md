@@ -5,7 +5,7 @@ Always route Amply calls through a single module — either the project's existi
 1. **Preserve existing call shape** — your codebase keeps using the same `track('paywall_shown', { screen: 'home' })` it always has.
 2. **Inherit the existing wrapper's signature.** If the existing `logEvent` / `track` is **synchronous** (Amplitude, Firebase native, Mixpanel native), keep it synchronous and fire-and-forget the Amply call (`void Amply.track({...})` — Amply's RN `track` returns a Promise but you don't have to await it). Forcing the existing wrapper async would ripple to every call site in the codebase. The templates below show the async form because RN's `Amply.track` is async — adapt to sync if that's what the project already uses.
 3. **Do the convention translation in the wrapper** — PascalCase event names and snake_case property keys for the Amply call only. Do not rename the project's events.
-4. **Respect consent** — read the project's existing consent flag. If consent says "no", skip the Amply call. PII (email / phone / raw IP) must be stripped or hashed before forwarding.
+4. **Strip / hash PII** at the wrapper before forwarding to Amply: email, phone, raw IP, full name, government IDs, raw payment details. This is hygiene, not consent — see `consent-and-privacy.md` for why Amply (a first-party product-feature SDK) does not need a runtime consent gate.
 
 ## Template — TypeScript (RN / Expo)
 
@@ -13,7 +13,6 @@ Always route Amply calls through a single module — either the project's existi
 // src/analytics/index.ts
 import Mixpanel from 'mixpanel-react-native';
 import Amply from '@amplytools/react-native-amply-sdk';
-import { hasAnalyticsConsent } from '../consent';
 
 const PII_KEYS = new Set(['email', 'phone', 'address', 'ip']);
 
@@ -55,8 +54,7 @@ export async function track(name: string, props: Record<string, unknown> = {}) {
   // 1. Existing analytics — unchanged.
   Mixpanel.track(name, props);
 
-  // 2. Amply fan-out, gated by consent.
-  if (!hasAnalyticsConsent()) return;
+  // 2. Amply fan-out.
   await Amply.track({
     name: pascalCase(name),
     properties: coerceForRn(stripPii(props)),
@@ -92,11 +90,6 @@ import FirebaseAnalytics
 final class AnalyticsService {
     static let shared = AnalyticsService()
     private var amply: Amply!
-    private let consent: ConsentManager
-
-    init(consent: ConsentManager = .shared) {
-        self.consent = consent
-    }
 
     func bootstrap(amply: Amply) {
         self.amply = amply
@@ -106,15 +99,14 @@ final class AnalyticsService {
         // Existing analytics
         Analytics.logEvent(name, parameters: properties)
 
-        // Amply fan-out, gated by consent
-        guard consent.hasAnalyticsConsent else { return }
+        // Amply fan-out
         let stripped = stripPii(properties)
         amply.track(event: pascalCase(name), properties: stripped)
     }
 
     func setUserId(_ id: String?) {
         Analytics.setUserID(id)
-        amply.setUserId(id)
+        amply.setUserId(userId: id)
     }
 
     func setUserProperties(_ props: [String: Any]) {
@@ -124,7 +116,7 @@ final class AnalyticsService {
 
     func logout() {
         Analytics.setUserID(nil)
-        amply.setUserId(nil)
+        amply.setUserId(userId: nil)
         amply.clearCustomProperties()
     }
 
@@ -161,7 +153,6 @@ import tools.amply.sdk.Amply
 
 class AnalyticsService(
     private val firebase: com.google.firebase.analytics.FirebaseAnalytics = Firebase.analytics,
-    private val consent: ConsentManager,
 ) {
     private var amply: Amply? = null
 
@@ -170,7 +161,6 @@ class AnalyticsService(
     fun track(name: String, properties: Map<String, Any> = emptyMap()) {
         firebase.logEvent(name, properties.toBundle())
 
-        if (!consent.hasAnalyticsConsent()) return
         amply?.track(event = pascalCase(name), properties = stripPii(properties))
     }
 
@@ -213,8 +203,14 @@ Live the wrapper in `commonMain` and let it reach `AmplyHolder.instance` (see `s
 - Easy to disable (return early) for debugging or in tests.
 - Easy to extend later — add Sentry breadcrumbs, BI fan-out, sampling, etc., without touching call sites.
 
+## "But I want to disable Amply for some users"
+
+If your business logic says some users shouldn't see Amply campaigns (kids' mode, free tier without campaign features, accounts flagged for special handling), **don't add a flag inside the wrapper**. Instead: don't construct `Amply(config:)` for those users. See `consent-and-privacy.md` § "Strict — defer construction".
+
+The wrapper either has an Amply instance (and uses it) or doesn't (and `setUserId` / `track` / etc. become no-ops via optional chaining or nil-checks). One decision point, in the host app, at construction. Not a runtime gate inside the wrapper.
+
 ## Anti-patterns to flag
 
 - **Direct `Amply.track(...)` calls scattered across screens.** Reject and route through the wrapper.
-- **Wrapper that silently drops events for users without consent.** Make the consent gate explicit and logged at debug level.
+- **Wrapping Amply in a runtime "consent" / "tracking enabled" gate.** Defensive over-engineering — Amply is a first-party product-feature SDK, not tracking analytics. If you don't want a user to see Amply, don't construct the SDK for them. See `consent-and-privacy.md`.
 - **Wrapper that forwards every event from a high-volume vendor (Sentry breadcrumbs, Datadog RUM events) to Amply.** Add an allow-list of event names — Amply targeting works on a curated set, not the full firehose.

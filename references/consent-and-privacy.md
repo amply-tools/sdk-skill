@@ -1,40 +1,71 @@
-# Consent & privacy gating
+# Consent & privacy
 
-Amply is part of the analytics surface area of an app — anything you can do with Mixpanel-style tracking, you can do here. That means **the same consent rules that gate Mixpanel must gate Amply.**
+> **Amply is a campaign-orchestration product-feature SDK, not a tracking-analytics SDK.** It serves your app's own functionality — which screen to show next, which deeplink to fire, when to ask for a review — using first-party data sent to your own Amply backend. **The consent considerations that apply to Mixpanel / Amplitude / Adjust do not map onto Amply directly.** Read this whole page once; the temptation to "wrap Amply in a consent gate" is real, and almost always wrong.
 
-## Detection — what to grep for
+## What the SDK already does correctly
 
-| Framework | Marker | Notes |
+- **IDFA (Apple advertising identifier)** is read only if `ATTrackingManager.trackingAuthorizationStatus() == Authorized`. If not authorised, the SDK ships `null` for IDFA. Source: `multiplatform-library-template/library/src/iosMain/.../DeviceDataSetImpl.kt:49-63`.
+- **The SDK does NOT call `requestTrackingAuthorization`.** Showing the ATT prompt is host-app responsibility, not Amply's. Whatever ATT result your app already has, Amply respects it.
+- **Everything else** — IDFV (per-vendor uuid), device model, OS version, locale, app version — is shipped to your own Amply backend as first-party product context. None of it is "tracking" in the ATT/GDPR-consent sense.
+
+## What you (the integrator) need to do
+
+Pick one of two postures. **There is no third posture.**
+
+### Default — construct `Amply(config:)` at app start
+
+Right for the vast majority of apps.
+
+- The SDK handles IDFA gating correctly by itself; nothing to do.
+- Other data sent to your own Amply backend is first-party context for product-feature delivery. Lawful basis under GDPR is typically *performance of contract* or *legitimate interest* — not *consent*.
+- ATT/GDPR explicit consent is for ads, cross-vendor tracking, data resale — none of which Amply does.
+- **No runtime consent gate around Amply is needed or appropriate.**
+
+### Strict — defer construction until your app decides to enable Amply for this user
+
+Right when:
+- A user category should never run Amply (kids' accounts, free tier without campaign features, accounts flagged for special handling).
+- Your privacy team requires explicit acknowledgement before any first-party product-feature SDK activates.
+
+The mechanism is one line of conditional code in your host app:
+
+```swift
+// Don't construct until your business rule is satisfied
+if shouldEnableAmplyFor(user) {
+    self.amply = Amply(config: amplyConfig)
+}
+// Otherwise: never construct. Amply doesn't run. Done.
+```
+
+That's it. **Do not** build an `AmplyConsentManager` / consent flag / three-state gate around the constructed instance — if Amply is constructed, it runs (that's its product surface); if you don't want it to run, don't construct it.
+
+## Why the "wrap Amply in consent" pattern is wrong
+
+It conflates two different things that share the word *consent*:
+
+| Concept | What it actually is | Where it lives |
 |---|---|---|
-| **iOS ATT** | `import AppTrackingTransparency`, `ATTrackingManager.requestTrackingAuthorization` | Required by Apple before tracking with IDFA. The Amply iOS SDK reads IDFA when allowed; refresh device properties after the user grants permission. |
-| **Google UMP (Android, sometimes iOS)** | `com.google.android.ump`, `UserMessagingPlatform` | EEA / UK GDPR consent. |
-| **OneTrust** | iOS `OneTrust`, Android `com.onetrust.cmp.sdk` | |
-| **Didomi** | iOS `Didomi`, Android `io.didomi.sdk` | |
-| **Iubenda** | `iubenda` package or imported web SDK | |
-| **TrustArc / Cookiebot** | rare in mobile, often web-only | |
-| **Custom consent manager** | `consentManager`, `hasAnalyticsConsent`, `acceptedTracking` patterns in source | The most common case in production apps. |
+| **ATT consent** (Apple) | Permission to attach the cross-vendor advertising identifier (IDFA) to outgoing data | Host app prompts ATT. SDK reads the result. |
+| **GDPR consent** (EU) | One of several lawful bases for processing personal data. Required for ads / tracking / resale; **not** required for first-party product features | Host app handles legal-grade collection of consent. |
+| **App product decision** ("show Amply campaigns to this user, yes/no") | Your business logic | Construct Amply or don't. |
 
-## Default policy — match the project's posture, don't unilaterally tighten
+Building a runtime `AmplyConsentManager` confuses team members ("we have an Amply consent gate, must be ATT-related") and produces dead defensive code. Privacy reviewers later spend cycles asking "do we need to consent-gate this?" — the answer is no; the doc that suggested the gate was wrong.
 
-The single most important rule: **mirror the consent posture of the existing analytics stack.** If the project already runs Amplitude / Adjust / Firebase **ungated**, gating Amply alone would be inconsistent — privacy review will see "Amply blocked, Amplitude wide open" and flag the mismatch, not the alignment. The Amply team's preferred default is below, but **the project's existing posture wins** when it contradicts it. Document the choice explicitly in the audit so a future reviewer can re-evaluate when the rest of the stack tightens.
+## When you already show an ATT prompt for *other* reasons
 
-| Project posture for the existing analytics stack | What to do with Amply |
-|---|---|
-| **Ungated** (Amplitude / Firebase / Adjust fire from launch, no consent flag) | Fire Amply the same way. Note in the audit "Amply matches existing project posture — revisit when the stack adds a gate". |
-| **Functional-analytics consent** (a single boolean flag gates all behavioural events) | Apply the same flag to Amply. Implement in the wrapper. |
-| **Full marketing consent** (separate flag for marketing/identifier events) | Apply the marketing flag to Amply for events with identifiers; apply the functional flag (if present) for purely behavioural events. |
-| **No analytics at all yet, Amply is the first** | Set up a single functional-analytics flag and gate Amply behind it. Document the decision. |
+If the app shows an ATT prompt for AdMob / attribution SDK / etc., Amply doesn't change that. The ATT decision is shared across the app via `ATTrackingManager.trackingAuthorizationStatus()`. Amply reads that single value automatically. No additional Amply-specific consent flow.
 
-### Always-on rules (regardless of posture)
+After the user grants ATT, IDFA becomes available to Amply on the next read — Amply's `DeviceDataSetImpl.getAdId()` is called per session-context refresh, so the new value picks up naturally. Force-refresh is not needed for typical use.
+
+## Always-on hygiene (regardless of posture)
+
+These are real engineering rules, unrelated to consent:
 
 | Rule | Rationale |
 |---|---|
-| Strip / hash PII at the wrapper before forwarding | Email, phone, raw IP, full name, government IDs must never leave the device as Custom Property values, even with consent. |
-| Use deterministic opaque user IDs in `setUserId` | Not email. |
-| Reset on logout: `setUserId(null)` + `clearCustomProperties()` | Hygiene; required for user-deletion compliance. |
-| Reset on consent revocation | If consent flips `true → false` mid-session, stop forwarding new events to Amply; optionally `clearCustomProperties()`. |
-
-The wrapper templates in `wrapper-patterns.md` show a baseline gate — adjust to the project's posture per the table above.
+| **Strip / hash PII at the wrapper before forwarding** to Amply: email, phone, raw IP, full name, government IDs, raw payment details. | PII has its own legal-grade handling (GDPR Article 6 + 9), separate from consent. Never appropriate to ship raw PII to Amply, even when the user has consented to whatever. |
+| **Use deterministic opaque user IDs in `setUserId(userId:)`** — not email, not phone. Hash with a stable salt held outside the device. | Opaque IDs make user-deletion compliance possible without rotating Amply data. |
+| **Reset on logout**: `setUserId(userId: nil)` + `clearCustomProperties()`. | Hygiene + user-deletion compliance. Not consent. |
 
 ## PII rules
 
@@ -46,22 +77,22 @@ If the team needs a "user is in EU" or "user is logged in" flag for targeting, e
 
 When the user logs out:
 
-```
-setUserId(null)
-clearCustomProperties()
+```swift
+amply.setUserId(userId: nil)
+amply.clearCustomProperties()
 ```
 
-If the consent flag flips from `true` → `false` mid-session:
+These are correct hygiene. They are NOT a "consent revocation" pattern.
 
-- Stop forwarding new events to Amply (early-return in the wrapper).
-- Optionally call `clearCustomProperties()` if the project's privacy policy promises immediate scrub.
-- Do **not** retroactively delete already-sent events from Amply — file that with the Amply team via support if a user requests data deletion.
+If a user *deletes their account* and your privacy policy promises immediate scrub, additionally file a data-deletion request via Amply support — the locally-cached data is gone after `clearCustomProperties()`, but anything already sent to your Amply backend isn't deleted by client-side action.
 
 ## What to put in `amply-audit.md`
 
 ```
-Consent framework: <ATT | UMP | custom | none>
-Consent gate applied to Amply: <yes (function) | yes (full opt-in) | no — flag for review>
+Amply posture: <default — construct unconditionally | strict — gated by <business rule>>
+ATT result handling: <SDK reads status automatically — no action needed>
 PII strip list: <comma-separated keys>
 Logout reset: <wired | not wired — TODO>
 ```
+
+There is intentionally no row for "consent flag applied to Amply" — that's not a thing you do.

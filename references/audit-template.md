@@ -90,12 +90,14 @@ Baseline + project-detected. Set in the wrapper on session start (and on state c
 | `locale` | String | OS | ❌ |
 | `install_date` | DateTime | App (first-launch persisted) | ❌ |
 
-## 4. Privacy & consent
+## 4. Privacy hygiene
 
-- Consent framework:        <ATT + custom>
-- Gate applied to Amply:    yes — `consent.hasAnalyticsConsent()`
-- PII strip list:           email, phone, address, ip
-- Logout reset:             wired in `src/auth/logout.ts:22`
+- Amply construction posture: <default — construct unconditionally | strict — gated by `<business rule>` in host app>
+- ATT handling:               SDK reads status automatically — no action needed (iOS only)
+- PII strip list:             email, phone, address, ip
+- Logout reset:               wired in `src/auth/logout.ts:22`
+
+(Amply is a first-party product-feature SDK, not tracking analytics — no runtime consent gate is applied inside the wrapper. See `consent-and-privacy.md`.)
 
 ## 5. Lifecycle & state
 

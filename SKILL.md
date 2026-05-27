@@ -13,7 +13,7 @@ This skill walks the user through an opinionated, end-to-end integration:
 
 1. Detect the platform, package manager, navigation library, and SDK version gates.
 2. Audit the existing analytics layer and propose how to forward events into Amply.
-3. Apply privacy / consent gating before wiring tracking.
+3. Apply PII hygiene at the wrapper (strip PII, hash IDs, wire logout reset). Do **not** wrap Amply in a runtime consent gate — see Phase 2.5.
 4. Build a Who / When / What readiness audit for Amply's campaign model.
 5. Generate a thin wrapper (or extend an existing one) so Amply is called from one place.
 6. Wire the deeplink listener with the platform-correct signature.
@@ -132,11 +132,19 @@ This is a multi-option decision — see Mode. In `autopilot`, default to extendi
 
 **Mixed-mode wrappers:** if half the call sites use the typed enum and half pass bare strings (or pass an undeclared event name), do not "clean up" the call sites as part of the integration — that's a separate refactor with separate review risk. Extend the wrapper's runtime contract (it almost certainly accepts `string`) and leave the typing pass for a follow-up. Log this as a finding in the audit report.
 
-### Phase 2.5 — Privacy & consent gating
+### Phase 2.5 — Privacy hygiene (not consent gating)
 
-See `references/consent-and-privacy.md`. Detect the consent framework (ATT, GDPR / UMP, custom managers, OneTrust / Didomi / Iubenda). Decide with the user whether Amply tracking is gated by the same flag — default **yes** for events containing identifiers, **no** for purely behavioural events without PII. Strip / hash PII at the wrapper. On logout, call `setUserId(null)` + `clearCustomProperties()`.
+See `references/consent-and-privacy.md`. The most important reframe: **Amply is a first-party product-feature SDK, not a tracking-analytics SDK**, and the consent considerations that apply to Mixpanel / Amplitude / Adjust do not map onto Amply. Do not wrap Amply in a runtime consent gate.
 
-This is a multi-option decision — see Mode. In `autopilot`, default to "match the project's existing posture, do not tighten it" and log the choice.
+What you do here, in this exact order:
+
+1. **PII strip**: identify keys in the existing analytics layer that contain PII (email, phone, address, raw IP, full name, government IDs, raw payment details) — strip / hash them in the wrapper before any Amply call.
+2. **Opaque user IDs**: confirm that whatever the project passes to `setUserId(userId:)` is opaque (not email/phone). If not, route through a hash with a stable, off-device salt.
+3. **Logout hygiene**: wire `setUserId(userId: nil)` + `clearCustomProperties()` on logout. If the app has no logout flow yet, see `references/lifecycle-and-state.md` for the "no login yet" recipe.
+4. **ATT** (iOS only): no action needed — the SDK reads `ATTrackingManager.trackingAuthorizationStatus()` automatically and ships IDFA only when authorised. If the app has an ATT prompt for other reasons (AdMob etc.), nothing additional is needed for Amply.
+5. **Construction policy**: decide whether your app should construct `Amply(config:)` unconditionally (default — right for ~all apps) or only for certain users (strict — kids' mode, free tier without campaign features, etc.). If strict, the rule is one `if` around the constructor call; no runtime consent flag inside the wrapper.
+
+In `autopilot`, default to construction-unconditional plus the PII / opaque-id / logout hygiene above. Log the choice. **Do not** generate an `AmplyConsentManager` / consent-gated wrapper — that's defensive over-engineering for a problem Amply doesn't have.
 
 ### Phase 3 — Event & Custom Property mapping
 
@@ -254,7 +262,7 @@ Run the build (or defer to user — UI work needs eyes). Print exact steps to fi
 | Calling Amply SDK from many places instead of a wrapper. | Route through the existing analytics wrapper; fan out from there. |
 | Hard-coding `appId` / `apiKeyPublic`. | Pull from `.env`, `Info.plist`, `BuildConfig`, `local.properties`. |
 | Using array / nested-object Custom Property values; using DateTime on RN. | Native: `String` / `Number` / `Boolean` / `DateTime` only. RN: `string` / `number` / `boolean` only. |
-| Skipping consent gating. | Tracking that includes identifiers must respect the project's existing consent flag. |
+| Wrapping Amply in a runtime consent gate. | Amply is a first-party product-feature SDK, not tracking analytics — consent gates are defensive over-engineering. If a user shouldn't see Amply campaigns, don't construct the SDK for them. See Phase 2.5. |
 | Skipping Phase 4 because the user is in a hurry. | At minimum produce a 5-line gap list — even a short audit pays back. |
 | Renaming the app's existing events to PascalCase. | Keep existing names. Translate inside the wrapper for the Amply call only. |
 | Forgetting strong references — listener garbage-collected. | Listeners and the Amply instance must be retained explicitly on Swift / Kotlin. |

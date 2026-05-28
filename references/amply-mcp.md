@@ -35,7 +35,15 @@ If present, you have access to a known set of tools all prefixed `amply_`. The t
 | `amply_create_application` | First-time registration of the app. Returns the first API key in the response. |
 | `amply_create_api_key` | Need an additional key (key rotation, separate scope). |
 | **`amply_ensure_app`** | **Recommended primary entry** — idempotent project + app + key resolution with cross-project conflict guard and explicit `mintNewKey` opt-in. Returns one of `created` / `reused` / `reused_new_key` / `conflict_cross_project`. |
-| `amply_bootstrap_for_app` | *(deprecated — calls `amply_ensure_app({ ..., mintNewKey: true })` internally; will be removed in a future release).* |
+| `amply_create_campaign` | Create a campaign from a full definition — event property filters via `params`, every-N `repeat`, full device/customProperty targeting. Always created in Draft state. |
+| `amply_update_campaign` | Edit a campaign in place; top-level replace of provided fields; current state preserved for fields not supplied. |
+| `amply_describe_targeting` | Describe the targeting + triggering vocabulary available — slots, comparators, and predicate shapes — so agents can discover the campaign-authoring vocabulary before calling `amply_create_campaign`. |
+
+## Removed tools
+
+| Tool | Removed | Notes |
+|---|---|---|
+| `amply_bootstrap_for_app` | 0.3.0 | Was a thin wrapper around `amply_ensure_app({ ..., mintNewKey: true })`; deprecated in 0.2.0, removed in 0.3.0. Use `amply_ensure_app` directly. |
 
 ## If the MCP is NOT connected
 

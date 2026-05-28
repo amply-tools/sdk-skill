@@ -59,7 +59,7 @@ The workflow runs Phase 0 (toolchain check) once, then the nine main phases. Num
 Before anything else, check two MCPs:
 
 1. **Context7** — mirrors live `docs.amply.tools`; authoritative for SDK reference questions when present. See `references/context7-mcp.md` for detection + free install command + autonomous-mode fallback.
-2. **Amply MCP** (`@amplytools/amply-mcp`) — direct backend automation: signup, login, register applications, fetch `apiKeyPublic` + `apiKeySecret`. When connected, the skill can complete a full integration without the user ever opening the Amply admin UI. See `references/amply-mcp.md` for detection (`claude mcp list | grep -i amply`), install (`claude mcp add amply -- npx -y @amplytools/amply-mcp`), the 12 tools available, and the recommended one-shot `amply_bootstrap_for_app`. Same autonomous-mode rule as Context7 — don't install MCPs without explicit consent.
+2. **Amply MCP** (`@amplytools/amply-mcp`) — direct backend automation: signup, login, register applications, fetch `apiKeyPublic` + `apiKeySecret`. When connected, the skill can complete a full integration without the user ever opening the Amply admin UI. See `references/amply-mcp.md` for detection (`claude mcp list | grep -i amply`), install (`claude mcp add amply -- npx -y @amplytools/amply-mcp`), the campaign + project/application + auth tools available, and the recommended one-shot `amply_ensure_app`. For agents that want to set up campaigns programmatically, authoring tools (`amply_create_campaign`, `amply_describe_targeting`) are also available — see `references/amply-mcp.md`. Same autonomous-mode rule as Context7 — don't install MCPs without explicit consent.
 
 ### Phase 0.5 — Goal sanity check
 

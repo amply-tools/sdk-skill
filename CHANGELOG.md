@@ -2,6 +2,11 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-05-28
+
+### Changed
+- Coordinated with `@amplytools/amply-mcp@0.3.0`: documentation refreshed to drop `amply_bootstrap_for_app` (removed from the MCP in 0.3.0; the skill's runtime path already used `amply_ensure_app` since 0.2.0) and to document the three new MCP authoring tools available to agents: `amply_create_campaign`, `amply_update_campaign`, `amply_describe_targeting`.
+
 ## [0.2.0] — 2026-05-25
 
 ### Added

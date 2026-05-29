@@ -137,6 +137,16 @@ suspend fun reportPaywallShown(screen: String, source: String) {
         properties = mapOf("screen" to screen, "source" to source),
     )
 }
+
+// Gate-able moment — suspend until campaign resolves
+suspend fun trackGatedSave(screen: String): GateDecision =
+    AmplyHolder.instance.trackGated(
+        event = "SaveTapped",
+        properties = mapOf("screen" to screen),
+    )
+```
+
+`registerGate` takes a platform-side `CampaignPresenter` — call it from platform startup code (Android `Application.onCreate` / iOS `AppDelegate`), not from `commonMain`, because the presenter needs access to the platform UI layer.
 ```
 
 ## Custom Properties from common code
@@ -180,6 +190,28 @@ iosMain/
     myapp/
       PlatformInit.kt         # actual
 ```
+
+## Public surface (API table — commonMain)
+
+| Method | Signature | Notes |
+|---|---|---|
+| `track` | `suspend fun track(event: String, properties: Map<String, Any> = emptyMap())` | |
+| `trackGated` | `suspend fun trackGated(event: String, properties: Map<String, Any> = emptyMap()): GateDecision` | Suspends until campaign resolves. |
+| `registerGate` | `fun registerGate(baseUrl: String, presenter: CampaignPresenter, onAbort: AbortPolicy = AbortPolicy.Cancel, timeoutMs: Long = 60_000)` | Call from platform startup, not commonMain. |
+| `setUserId` | `fun setUserId(userId: String?)` | |
+| `setCustomProperty` | `fun setCustomProperty(key: String, value: Any)` | |
+| `setCustomProperties` | `fun setCustomProperties(properties: Map<String, Any>)` | |
+| `getCustomProperty` | `suspend fun getCustomProperty(key: String): Any?` | |
+| `removeCustomProperty` / `clearCustomProperties` | | |
+| `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener)` | |
+
+## Gate API (SDK 0.5.0+)
+
+Same types as Android/Kotlin: `GateDecision.Proceed(reason: ProceedReason)` / `GateDecision.Cancelled`; `ProceedReason.Completed` / `ProceedReason.FailOpen`; `AbortPolicy.Cancel` / `AbortPolicy.Proceed`.
+
+`CampaignPresenter` and `CampaignResolution`/`CampaignResult` live in the platform layer — wire them from `androidMain`/`iosMain`.
+
+> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
 
 ## Requirements
 

@@ -188,6 +188,14 @@ Use the templates in `references/wrapper-patterns.md`. Generate / patch wrapper 
 - **Android Kotlin** — `amply.track(event = "...", properties = mapOf(...))` on the held instance.
 - **KMP** — same as platform target; instance constructed in shared init.
 
+For a **gate-able moment** (the app must wait on a campaign action before proceeding — e.g. a rewarded ad before Save/Export), use `trackGated` instead of `track` and branch on the returned decision:
+
+- **RN/Expo** — `const decision = await Amply.trackGated(event, properties)` — never rejects; check `decision.outcome === 'proceed'` / `'cancelled'`. Register the presenter at startup: `await Amply.registerGate(baseUrl, presenter, { onAbort, timeoutMs })`.
+- **iOS Swift** — `let decision = await amply.trackGated(event: "...", properties: [...])`. Match with `if case .proceed = decision` / `decision is GateDecision.Cancelled`. Register at startup: `amply.registerGate(baseUrl: ..., presenter: presenter, onAbort: .cancel, timeoutMs: 60_000)`.
+- **Android/KMP Kotlin** — `val decision = amply.trackGated(event = "...", properties = mapOf(...))` (suspend). Check `decision is GateDecision.Proceed` / `GateDecision.Cancelled`. Register at startup: `amply.registerGate(baseUrl, presenter, onAbort = AbortPolicy.Cancel, timeoutMs = 60_000)`.
+
+**SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` (callback continuation) and `registerCampaignPresenter` are **removed**. Use `trackGated` + `registerGate` exclusively. See per-platform signatures in `references/sdk-cheatsheet-*.md`.
+
 Initialise Amply in the right place using **the platform-correct API** (see SDK cheatsheets):
 
 - RN/Expo: `await Amply.initialize({ appId, apiKeyPublic, debug? })` (static-style module). RN does not require `apiKeySecret`.

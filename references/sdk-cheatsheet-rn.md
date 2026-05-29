@@ -159,6 +159,8 @@ Notably, **`@custom` is not in the published RN union** even though it exists in
 | `Amply.setCustomProperty(key, value)` / `setCustomProperties(map)` | Values: `string \| number \| boolean`. |
 | `Amply.getCustomProperty(key)` | Async. |
 | `Amply.removeCustomProperty(key)` / `clearCustomProperties()` | |
+| `Amply.trackGated(event, properties?)` | Async. Resolves `{ outcome: 'proceed', reason: 'completed' \| 'failOpen' } \| { outcome: 'cancelled' }`. **Never rejects.** |
+| `Amply.registerGate(baseUrl, presenter, options?)` | Async. `options: { onAbort?: 'cancel' \| 'proceed', timeoutMs?: number }`. Returns `Promise<() => void>` (unregister). `presenter: (params, info, resolution) => void`. |
 | `Amply.addDeepLinkListener(listener)` | Async; returns `unsubscribe`. |
 | `Amply.addSystemEventListener(listener)` / `addSystemEventsListener` / `systemEvents.addListener` | Three aliases for the same async-returns-`unsubscribe` listener. |
 | `Amply.removeAllListeners()` | Unsubscribe all registered deeplink listeners. |
@@ -166,6 +168,38 @@ Notably, **`@custom` is not in the published RN union** even though it exists in
 | `Amply.getDataSetSnapshot(type)` | Async; `type` is one of the dataset shapes (`@device`, `@user`, `@custom`, `@session`, `@triggeredEvent`, `@events`). |
 | `Amply.setLogLevel(level)` / `getLogLevel()` | `'none' \| 'error' \| 'warn' \| 'info' \| 'debug'` |
 | `Amply.isInitialized()` | |
+
+## Gate API (SDK 0.5.0+)
+
+`GateDecision` shape: `{ outcome: 'proceed', reason: 'completed' | 'failOpen' } | { outcome: 'cancelled' }`.
+
+The presenter is a plain callback: `(params: Record<string, string>, info: Record<string, unknown>, resolution: { resolve: (result: 'completed' | 'dismissed' | 'unavailable') => void }) => void`.
+
+### Gate example
+
+```ts
+// At startup — after Amply.initialize
+const unregisterGate = await Amply.registerGate(
+  'https://campaigns.example.com',
+  (params, info, resolution) => {
+    showCampaignModal(params, info, {
+      onComplete: () => resolution.resolve('completed'),
+      onDismiss: () => resolution.resolve('dismissed'),
+    });
+  },
+  { onAbort: 'cancel', timeoutMs: 60_000 },
+);
+
+// At a gate-able moment
+const decision = await Amply.trackGated('SaveTapped', { screen: 'editor' });
+if (decision.outcome === 'proceed') {
+  performSave();
+} else {
+  showCancelledFeedback();
+}
+```
+
+> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
 
 ## Requirements
 

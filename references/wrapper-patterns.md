@@ -197,6 +197,79 @@ Bootstrap from `Application.onCreate` after constructing `Amply`.
 
 Live the wrapper in `commonMain` and let it reach `AmplyHolder.instance` (see `sdk-cheatsheet-kmp.md`). Use `expect/actual` only for vendor SDKs that are not multiplatform-friendly (Firebase, Mixpanel — both have their own KMP wrappers; if not, declare an `expect class VendorAnalytics` and provide platform actuals).
 
+## Gating pattern (SDK 0.5.0+)
+
+Use `trackGated` (instead of `track`) when the app must **pause and wait** for a campaign action to complete before proceeding — e.g. a rewarded ad before Save, a campaign offer before Export.
+
+> **SDK 0.5.0 note:** `trackEvent(..., onProceed, onCancel)` callback continuation and `registerCampaignPresenter` are **removed**. The patterns below replace them entirely.
+
+Register the presenter once at startup (before the first gate-able event fires):
+
+**TypeScript (RN/Expo)**
+
+```ts
+// startup — after Amply.initialize
+const unregisterGate = await Amply.registerGate(
+  'https://campaigns.example.com',
+  (params, info, resolution) => {
+    showCampaignModal(params, info, {
+      onComplete: () => resolution.resolve('completed'),
+      onDismiss: () => resolution.resolve('dismissed'),
+    });
+  },
+  { onAbort: 'cancel', timeoutMs: 60_000 },
+);
+
+// gate-able call site
+export async function trackGatedSave(props: Record<string, unknown> = {}) {
+  const decision = await Amply.trackGated('SaveTapped', coerceForRn(stripPii(props)));
+  return decision.outcome === 'proceed';
+}
+```
+
+**Swift (iOS)**
+
+```swift
+// startup — amply already constructed
+amply.registerGate(
+    baseUrl: "https://campaigns.example.com",
+    presenter: MyCampaignPresenter(),
+    onAbort: .cancel,
+    timeoutMs: 60_000
+)
+
+// gate-able call site inside AnalyticsService
+func trackGatedSave(properties: [String: Any] = [:]) async -> Bool {
+    let decision = await amply.trackGated(
+        event: "SaveTapped",
+        properties: stripPii(properties)
+    )
+    if case .proceed = decision { return true }
+    return false
+}
+```
+
+**Kotlin (Android / KMP)**
+
+```kotlin
+// startup — Application.onCreate, after amply constructed
+amply.registerGate(
+    baseUrl = "https://campaigns.example.com",
+    presenter = MyCampaignPresenter(),
+    onAbort = AbortPolicy.Cancel,
+    timeoutMs = 60_000,
+)
+
+// gate-able call site inside AnalyticsService / commonMain wrapper
+suspend fun trackGatedSave(properties: Map<String, Any> = emptyMap()): Boolean {
+    val decision = amply.trackGated(
+        event = "SaveTapped",
+        properties = stripPii(properties),
+    )
+    return decision is GateDecision.Proceed
+}
+```
+
 ## What the wrapper guarantees
 
 - One place to read for "where is Amply called from?".

@@ -218,9 +218,52 @@ amply.setSystemEventsListener(listener: systemListener)
 | `getCustomProperty` | `func getCustomProperty(key: String) async -> Any?` |
 | `removeCustomProperty` | `func removeCustomProperty(key: String)` |
 | `clearCustomProperties` | `func clearCustomProperties()` |
+| `trackGated` | `func trackGated(event: String, properties: [String: Any]) async -> GateDecision` — waits for campaign resolution; returns `.proceed(reason:)` or `.cancelled`. |
+| `registerGate` | `func registerGate(baseUrl: String, presenter: CampaignPresenter, onAbort: AbortPolicy, timeoutMs: Int64)` — call once at startup. |
 | `registerDeepLinkListener` | `func registerDeepLinkListener(listener: DeepLinkListener)` |
 | `setSystemEventsListener` | `func setSystemEventsListener(listener: SystemEventsListener)` |
 | `setLogLevel` | `func setLogLevel(level: String)` |
+
+## Gate API (SDK 0.5.0+)
+
+`GateDecision` is a sealed class with two nested types: `GateDecision.Proceed(reason: ProceedReason)` and `GateDecision.Cancelled`. Match with `if case .proceed`/`decision is GateDecision.Cancelled`.
+
+`ProceedReason`: `.completed` / `.failopen` (lowercase).
+
+`CampaignPresenter` protocol:
+
+```swift
+protocol CampaignPresenter {
+    func present(params: [String: String], info: [String: Any], resolution: CampaignResolution)
+    func dismiss()
+}
+// CampaignResolution.resolve(result:) where CampaignResult is .completed / .dismissed / .unavailable
+```
+
+`AbortPolicy`: `.cancel` (default — gate returns `.cancelled` on timeout/abort) / `.proceed` (gate returns `.proceed(reason: .failopen)`).
+
+### Gate example
+
+```swift
+// At startup — register presenter once
+amply.registerGate(
+    baseUrl: "https://campaigns.example.com",
+    presenter: MyCampaignPresenter(),
+    onAbort: .cancel,
+    timeoutMs: 60_000
+)
+
+// At a gate-able moment (e.g. before Save)
+let decision = await amply.trackGated(event: "SaveTapped", properties: ["screen": "editor"])
+if case .proceed = decision {
+    performSave()
+} else {
+    // decision is GateDecision.Cancelled — user dismissed or timed out
+    showCancelledFeedback()
+}
+```
+
+> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed:, onCancel:)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
 
 ## Requirements
 

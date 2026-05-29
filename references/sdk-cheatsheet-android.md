@@ -162,9 +162,53 @@ amply.setSystemEventsListener(object : SystemEventsListener {
 | `setCustomProperties` | `fun setCustomProperties(properties: Map<String, Any>)` | Batch — preferred over a `forEach { setCustomProperty(...) }` loop. |
 | `getCustomProperty` | `suspend fun getCustomProperty(key: String): Any?` | Suspend; returns `null` when key is not set. |
 | `removeCustomProperty` / `clearCustomProperties` | | |
+| `trackGated` | `suspend fun trackGated(event: String, properties: Map<String, Any> = emptyMap()): GateDecision` — suspends until campaign resolves; returns `GateDecision.Proceed(reason)` or `GateDecision.Cancelled`. | Call from a coroutine. |
+| `registerGate` | `fun registerGate(baseUrl: String, presenter: CampaignPresenter, onAbort: AbortPolicy = AbortPolicy.Cancel, timeoutMs: Long = 60_000)` — call once at startup. | |
 | `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener)` | |
 | `setSystemEventsListener` | `fun setSystemEventsListener(listener: SystemEventsListener)` | |
 | `setLogLevel` / `getLogLevel` / `setLogListener` | | |
+
+## Gate API (SDK 0.5.0+)
+
+`GateDecision.Proceed(reason: ProceedReason)` / `GateDecision.Cancelled`. `ProceedReason.Completed` / `ProceedReason.FailOpen`.
+
+`CampaignPresenter` interface:
+
+```kotlin
+interface CampaignPresenter {
+    fun present(params: Map<String, String>, info: Map<String, Any>, resolution: CampaignResolution)
+    fun dismiss()
+}
+// CampaignResolution.resolve(result) where CampaignResult is .Completed / .Dismissed / .Unavailable
+```
+
+`AbortPolicy.Cancel` (default) / `AbortPolicy.Proceed`.
+
+### Gate example
+
+```kotlin
+// At startup — in Application.onCreate, after constructing amply
+amply.registerGate(
+    baseUrl = "https://campaigns.example.com",
+    presenter = MyCampaignPresenter(),
+    onAbort = AbortPolicy.Cancel,
+    timeoutMs = 60_000,
+)
+
+// At a gate-able moment — inside a coroutine scope
+viewModelScope.launch {
+    val decision = amply.trackGated(
+        event = "SaveTapped",
+        properties = mapOf("screen" to "editor"),
+    )
+    when (decision) {
+        is GateDecision.Proceed -> performSave()
+        is GateDecision.Cancelled -> showCancelledFeedback()
+    }
+}
+```
+
+> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
 
 ## Requirements
 

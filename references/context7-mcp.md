@@ -20,7 +20,7 @@ A line like `context7: ... ✓ Connected` means the server is wired up. Anything
 
 ### Step 2a — Context7 is available
 
-Use it for SDK reference questions:
+Use it for SDK reference questions — code snippets, API signatures, version behaviour. **Not** for a user's account / app values (API keys, `appId`, projects, campaigns): those come from the Amply MCP, never from Context7.
 
 1. Resolve the library ID once per session:
    - Tool call: `mcp__context7__resolve-library-id` with query `"amply"` (or `"amply.tools"` / `"@amplytools/react-native-amply-sdk"`).

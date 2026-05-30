@@ -50,9 +50,35 @@ Resolve the mode in this order; use the first hit:
 
 Every phase below that has 2+ valid options consults this single value. Do not re-ask per phase.
 
+## State the skill carries
+
+The skill is a 9-phase state machine. It threads a small set of variables between phases. **These are silent internal state — never print their names or values back to the user.** Resolve each once; if a later phase observes a value that conflicts with one already set, **surface the conflict — do not silently overwrite it.**
+
+| Variable | Type | Initial | Set when |
+|---|---|---|---|
+| `mode` | `autopilot` \| `interactive` | unset | § Mode — resolved once, before Phase 0 |
+| `platform` | `RN` \| `iOS` \| `Android` \| `KMP` | unset | Phase 1 detection |
+| `rnFlavour` | `BareA` \| `BareExpoB` \| `PrebuildC` \| `ManagedD` | unset | Phase 1 (RN only) |
+| `appId` | UUID | unset | Phase 1b (`amply_ensure_app` or manual) |
+| `envBlock` | block of `appId` / `apiKeyPublic` / `apiKeySecret` | unset | Phase 1b |
+| `wrapperStrategy` | `extend` \| `new` | `extend` | Phase 2 analytics audit |
+| `phasesCompleted` | set of phase numbers | `{}` | appended at the end of each phase |
+| `checkpointsPassed` | set | `{}` | each verification gate (6a scheme, 6b listener, Phase 7 build) |
+
+Reserved for a future opt-in feedback step (not wired today; listed so the state contract is forward-stable): `feedbackEnabled`, `frictionRounds`, `rating`. **Do not collect or transmit these until that step exists.**
+
 ## Workflow
 
 The workflow runs Phase 0 (toolchain check) once, then the nine main phases. Numbering uses `2.5` and `5.5` for sub-steps that piggyback on the preceding phase. Run all phases on a fresh integration; returning users may re-run individual phases.
+
+**Build & verify yourself.** When a phase needs a build, a `pod install`, a Gradle sync, a scheme-registration check, or a test-event run, **the skill runs it** — via shell — and reads the result. Do **not** say *"try building and let me know if it works"* or hand the user a command to run on your behalf. Run `xcodebuild` / `npx expo run:*` / `npx react-native run-*` / `./gradlew` / `pod install` / `xcrun simctl openurl` / `adb` yourself, parse the output, and fix-then-rebuild on failure before escalating. The narrow whitelist of things that genuinely need the human — **everything else you do yourself**:
+
+- Xcode UI-only actions — "Resolve Package Versions", signing-team selection, a manual Product ▸ Build when no CLI scheme exists.
+- Amply admin / App Store Connect / Play Console dashboard operations with no MCP equivalent.
+- The ATT / OS permission prompt on a physical device, and visual confirmation of on-screen UI ("UI work needs eyes").
+- Anything requiring a credential or 2FA the skill doesn't hold.
+
+When something fails, **fix it yourself first** — read the error, apply the known fix from the platform cheatsheet, rebuild — and only escalate once you've exhausted the documented fixes.
 
 ### Phase 0 — Toolchain check (MCPs)
 
@@ -60,6 +86,8 @@ Before anything else, check two MCPs:
 
 1. **Context7** — mirrors live `docs.amply.tools`; authoritative for SDK reference questions when present. See `references/context7-mcp.md` for detection + free install command + autonomous-mode fallback.
 2. **Amply MCP** (`@amplytools/amply-mcp`) — direct backend automation: signup, login, register applications, fetch `apiKeyPublic` + `apiKeySecret`. When connected, the skill can complete a full integration without the user ever opening the Amply admin UI. See `references/amply-mcp.md` for detection (`claude mcp list | grep -i amply`), install (`claude mcp add amply -- npx -y @amplytools/amply-mcp`), the campaign + project/application + auth tools available, and the recommended one-shot `amply_ensure_app`. For agents that want to set up campaigns programmatically, authoring tools (`amply_create_campaign`, `amply_describe_targeting`) are also available — see `references/amply-mcp.md`. Same autonomous-mode rule as Context7 — don't install MCPs without explicit consent.
+
+**Tool boundary (which source for what):** use **Context7 for SDK reference** — code snippets, API signatures, version behaviour — and *never* to look up a user's account values. Use the **Amply MCP for account / backend automation** — API keys, `appId`, projects, campaigns — and *never* as a source of SDK reference. Crossing the boundary means either fetching stale code from the backend or burning a backend round-trip on something that lives in the public docs.
 
 ### Phase 0.5 — Goal sanity check
 
@@ -234,7 +262,7 @@ Use `references/deeplink-wiring.md` for the detected navigation library. Phase 6
 
 ### Phase 7 — Verification handoff
 
-Run the build (or defer to user — UI work needs eyes). Print exact steps to fire a test event and confirm it lands in the Amply admin panel. List remaining human-review TODOs (non-trivial wrapper merges, design questions, env-config that needs ops, consent-flow changes). If the user asks for a commit, prepare one — never auto-commit.
+Run the build **yourself** — per the *Build & verify yourself* contract above, the compile / `pod install` / Gradle sync is never handed to the user; only the on-screen visual confirmation ("UI work needs eyes") is. Print exact steps to fire a test event and confirm it lands in the Amply admin panel. List remaining human-review TODOs (non-trivial wrapper merges, design questions, env-config that needs ops, consent-flow changes). If the user asks for a commit, prepare one — never auto-commit.
 
 **Platform-specific verification checklist** (the RN flavour matters — see `references/platform-detection.md` §2).
 
@@ -247,6 +275,23 @@ Run the build (or defer to user — UI work needs eyes). Print exact steps to fi
 - **Native iOS (Swift, no RN)** — `pod install` (or SPM resolve); verify `AmplySDK ~> 0.2.5` lands in `Podfile.lock`.
 - **Native Android (Kotlin, no RN)** — Gradle sync; verify `tools.amply:sdk-android` resolves at the version pinned.
 - **All platforms** — full build; verify the Amply module logs `[Amply.Sdk]` lines at debug log level. Confirm a test event lands in the Amply admin panel.
+
+### Phase 8 — What's next (activation)
+
+Run this **once, only after Phase 7 verification passes** (a test event has landed in the admin panel). The integration itself is done; this step turns "SDK installed" into "first campaign live," while the context is fresh. **Only offer capabilities that exist today** — in particular do **not** promise A/B variant splitting; Amply does not split traffic (see Phase 0.5), and that surface isn't available.
+
+**`interactive` mode** — present one short `AskUserQuestion` menu, skippable with a single reply:
+
+- **Create your first campaign now** — author it in **Draft** and let the user activate after review.
+  - If the **Amply MCP is connected**, call `amply_create_campaign_from_template`, choosing a template that matches what this integration set up:
+    - Sets / relies on Custom Properties (e.g. `subscription_status`, `plan`) → `deeplink-on-property-change` — fires when the property changes to a target value (params: `propertyKey`, `newValue`, optional `oldValue`, `deeplink`); see `references/system-events.md`.
+    - Session / lifecycle oriented → `deeplink-on-session-n` or `deeplink-on-feature-discovery`.
+    - A rating prompt after a positive moment → `rate-review-after-positive-moment`.
+    For anything outside the templates, use `amply_create_campaign` (full authoring); `amply_describe_targeting` gives the vocabulary. **Always Draft** — the user reviews, then activates via `amply_set_campaign_state` or the admin UI.
+  - If the **MCP is not connected**, point the user to the admin UI (`app.amply.tools`) and build the campaign from the Who/When/What candidates already in the Phase 4 audit (`amply-audit.md`) + `references/who-when-what-audit.md`.
+- **Done** — end the session.
+
+**`autopilot` mode** — do **not** prompt (the Mode contract forbids questions). Instead append a one-line recommendation to the audit: the single best-fit campaign for this app (template name + concrete params) the team can create in one MCP call or in the admin. A recommendation, not an action taken.
 
 ## Quick reference — SDK by platform
 
@@ -274,6 +319,9 @@ Run the build (or defer to user — UI work needs eyes). Print exact steps to fi
 | Skipping Phase 4 because the user is in a hurry. | At minimum produce a 5-line gap list — even a short audit pays back. |
 | Renaming the app's existing events to PascalCase. | Keep existing names. Translate inside the wrapper for the Amply call only. |
 | Forgetting strong references — listener garbage-collected. | Listeners and the Amply instance must be retained explicitly on Swift / Kotlin. |
+| Firing `track` / `setCustomProperties` before init finishes (init not `await`ed). | The first events race the SDK construction and are dropped. Initialise (and `await` it on RN/Expo) **before** any `track`; see Phase 5.5. |
+| Calling `setUserId` after the first `track` of a session. | Early events land on the anonymous profile and never re-attribute. Set the user id at session start / right after login, before the first wrapper `track`. |
+| Registering the deeplink listener too late (after first frame / inside a screen). | A cold-start deeplink fires before the listener exists and is lost. Register once at app startup, globally — not per-screen (see Phase 6 listener-placement note). |
 | Promising Amply-rendered popups, push, email, or cross-channel sends. | Only `Deeplink` and `RateReview` actions exist. Host app renders any UI. |
 
 ## Feedback

@@ -24,6 +24,8 @@ yarn add @amplytools/react-native-amply-sdk
 
 **Build command — always read the project's `package.json` scripts first.** What follows is the *canonical fallback* per flavour. If the project already has `scripts.ios` / `scripts.android` / `scripts.dev:ios` / a `fastlane` lane / `eas build` setup, **prefer that** even if it doesn't match the canonical command (legacy scripts are common and not always worth rewriting during integration).
 
+**Run the build yourself** (per the SKILL.md *Build & verify yourself* contract): execute it via shell, read the output, and fix-then-rebuild on failure. Don't tell the user to "try building and let me know" — only Xcode-UI-only actions and on-device permission prompts go to the human.
+
 | Flavour | After `yarn add @amplytools/react-native-amply-sdk` | Canonical fallback build |
 |---|---|---|
 | **A. Pure Bare RN** | Don't touch `app.json`. | `npx react-native run-ios` / `run-android` |

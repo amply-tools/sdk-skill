@@ -38,6 +38,8 @@ When the audit captures a `*_count` Custom Property that depends on session coun
 
 **`CustomPropertyChanged` enables property-change-driven campaigns without custom events.** Where previously a campaign like "fire deeplink when subscription_status changes to 'expired'" required the app to fire a custom `*_changed` event after each `setCustomProperty` call, now the SDK emits `CustomPropertyChanged` (type=system) automatically. The campaign **When** can target this event directly with Event Param filters on `key === 'subscription_status'` AND `newValue === 'expired'`. Dedup is built in (the SDK only fires when `oldValue != newValue`), and the property persistence is guaranteed independently of the dispatch — a listener failure can't lose the write.
 
+When the Amply MCP is connected, this campaign is one tool call: `amply_create_campaign_from_template` with `templateKey: 'deeplink-on-property-change'` and params `{ propertyKey, newValue, oldValue?, deeplink }` — it builds the `CustomPropertyChanged` trigger with the `key` / `newValue` (/ optional `oldValue`) Event Param filters for you, always in Draft. (Requires `@amplytools/amply-mcp` ≥ the release that ships template #6.)
+
 ## What to do if the team really wants their own session event
 
 Some teams have analytics-stack reasons to keep an explicit `session_start` event in Mixpanel/Amplitude/etc. — for dashboards, server-side aggregations, retention cohorts. **That's fine** — keep the existing call to those vendors. The audit just says "do not fan it out to Amply too", because:

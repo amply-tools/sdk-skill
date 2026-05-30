@@ -248,6 +248,23 @@ Run the build (or defer to user — UI work needs eyes). Print exact steps to fi
 - **Native Android (Kotlin, no RN)** — Gradle sync; verify `tools.amply:sdk-android` resolves at the version pinned.
 - **All platforms** — full build; verify the Amply module logs `[Amply.Sdk]` lines at debug log level. Confirm a test event lands in the Amply admin panel.
 
+### Phase 8 — What's next (activation)
+
+Run this **once, only after Phase 7 verification passes** (a test event has landed in the admin panel). The integration itself is done; this step turns "SDK installed" into "first campaign live," while the context is fresh. **Only offer capabilities that exist today** — in particular do **not** promise A/B variant splitting; Amply does not split traffic (see Phase 0.5), and that surface isn't available.
+
+**`interactive` mode** — present one short `AskUserQuestion` menu, skippable with a single reply:
+
+- **Create your first campaign now** — author it in **Draft** and let the user activate after review.
+  - If the **Amply MCP is connected**, call `amply_create_campaign_from_template`, choosing a template that matches what this integration set up:
+    - Sets / relies on Custom Properties (e.g. `subscription_status`, `plan`) → `deeplink-on-property-change` — fires when the property changes to a target value (params: `propertyKey`, `newValue`, optional `oldValue`, `deeplink`); see `references/system-events.md`.
+    - Session / lifecycle oriented → `deeplink-on-session-n` or `deeplink-on-feature-discovery`.
+    - A rating prompt after a positive moment → `rate-review-after-positive-moment`.
+    For anything outside the templates, use `amply_create_campaign` (full authoring); `amply_describe_targeting` gives the vocabulary. **Always Draft** — the user reviews, then activates via `amply_set_campaign_state` or the admin UI.
+  - If the **MCP is not connected**, point the user to the admin UI (`app.amply.tools`) and build the campaign from the Who/When/What candidates already in the Phase 4 audit (`amply-audit.md`) + `references/who-when-what-audit.md`.
+- **Done** — end the session.
+
+**`autopilot` mode** — do **not** prompt (the Mode contract forbids questions). Instead append a one-line recommendation to the audit: the single best-fit campaign for this app (template name + concrete params) the team can create in one MCP call or in the admin. A recommendation, not an action taken.
+
 ## Quick reference — SDK by platform
 
 | Detected | Package | Cheatsheet |

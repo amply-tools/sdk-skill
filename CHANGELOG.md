@@ -2,6 +2,23 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-05-30
+
+### Added
+- **State the skill carries** — an explicit silent-state variable table (mode, platform, RN flavour, app id, env block, wrapper strategy, phases completed, checkpoints passed), so the multi-phase workflow never leaves state implicit and never silently overwrites a value on conflict.
+- **Phase 8 — What's next (activation)** — after verification, offer one skippable next step: create the first campaign via the Amply MCP (template-matched to the integration), or finish. Autopilot logs a one-line recommendation instead of prompting.
+- Three high-frequency **Common mistakes** rows: firing `track` before init is awaited, `setUserId` after the first event of a session, and registering the deeplink listener too late (cold-start loss).
+- `references/system-events.md` now points at the `deeplink-on-property-change` MCP template by name (pairs with `@amplytools/amply-mcp@0.4.0`).
+
+### Changed
+- Global **Build & verify yourself** contract: the skill runs builds / installs / scheme checks itself rather than asking the user to "try building," with a narrow human-action whitelist.
+- Explicit **Context7-vs-MCP tool boundary** in Phase 0 and both MCP reference files (Context7 for SDK reference, MCP for account automation — never crossed).
+
+## [0.5.0] — 2026-05-29
+
+### Added
+- Documented the SDK 0.5.0 gate API (`trackGated` + `registerGate`) across `SKILL.md` and the platform cheatsheets; the removed callback-continuation API (`trackEvent(..., onProceed, onCancel)` / `registerCampaignPresenter`) is called out as a breaking change.
+
 ## [0.3.0] — 2026-05-28
 
 ### Changed

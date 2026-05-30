@@ -2,6 +2,8 @@
 
 The `@amplytools/amply-mcp` server (separate package, installed independently of this skill) lets the agent talk directly to the Amply backend — sign up, log in, create projects, register applications, fetch `apiKeyPublic` + `apiKeySecret`. When this MCP is connected, **the skill can complete a full integration without ever asking the user to open the Amply admin UI** — it is the highest-leverage piece of Phase 0 toolchain after Context7.
 
+**Scope boundary:** this MCP is for account / backend automation only — keys, `appId`, projects, campaigns. It is **not** a source of SDK reference; code snippets and API signatures come from Context7 or the bundled `sdk-cheatsheet-*.md`, never from a backend round-trip.
+
 ## Detection (Phase 0)
 
 After the Context7 check, run:

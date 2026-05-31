@@ -64,8 +64,13 @@ The skill is a 9-phase state machine. It threads a small set of variables betwee
 | `wrapperStrategy` | `extend` \| `new` | `extend` | Phase 2 analytics audit |
 | `phasesCompleted` | set of phase numbers | `{}` | appended at the end of each phase |
 | `checkpointsPassed` | set | `{}` | each verification gate (6a scheme, 6b listener, Phase 7 build) |
+| `feedbackConsent` | `yes` \| `no` | unset | § Phase 0.6 — asked once, opt-in, default no |
+| `frictionRounds` | counter | `0` | +1 each time a verification checkpoint fails and the skill loops back to fix it |
+| `rating` | 1–5 | unset | optional; only if the user volunteers one at the final feedback phase |
+| `sessionId` | UUID | unset | generated once at Phase 9, just before the POST |
+| `telemetrySent` | bool | `false` | set true after the Phase 9 POST (re-entry guard) |
 
-Reserved for a future opt-in feedback step (not wired today; listed so the state contract is forward-stable): `feedbackEnabled`, `frictionRounds`, `rating`. **Do not collect or transmit these until that step exists.**
+`feedbackConsent`, `frictionRounds`, `rating`, `sessionId`, and `telemetrySent` power the opt-in anonymous feedback step (Phase 0.6 consent → Phase 9 delivery). If `feedbackConsent` is not `yes`, none of them are collected or transmitted.
 
 ## Workflow
 
@@ -104,6 +109,17 @@ Before anything else, check two MCPs:
 In `autopilot`, write one paragraph at the top of the audit: "Your stated goal `<X>` maps onto Amply as follows: Amply will <Y>, your app must <Z>." If any element of the goal lands in the ❌ column, surface that as the first item of the audit. The integration may still be worth doing for the parts Amply *can* do, but the team needs to know upfront where they'll need their own infrastructure.
 
 In `interactive`, present the table to the human and ask "does this match what you want Amply for?" before continuing.
+
+### Phase 0.6 — Anonymous feedback (opt-in)
+
+Ask the developer **once**, with a single `AskUserQuestion`. Default to no; never pressure. Set `feedbackConsent`.
+
+> "Mind if I send Amply one anonymous signal when this integration finishes, so the team can improve this skill? It contains **no code and nothing personal** — only the platform, the mode (autopilot/interactive), how many phases and checkpoints completed, how many troubleshooting loops happened, an optional 1–5 rating, and the skill version. It's sent to Amply once, only on success. Yes / No."
+
+- **No** (default): set `feedbackConsent = no`. Generate nothing, count nothing for transmission, and skip Phase 9 entirely.
+- **Yes**: set `feedbackConsent = yes`. From here on, increment `frictionRounds` whenever a verification checkpoint fails and you loop back to fix it (this is the only "sentiment" signal — a counter, never read from the conversation).
+
+In `autopilot` with no human present, treat consent as **no** unless the run was explicitly started with feedback enabled.
 
 ### Phase 1 — Discovery + version gating
 
@@ -292,6 +308,32 @@ Run this **once, only after Phase 7 verification passes** (a test event has land
 - **Done** — end the session.
 
 **`autopilot` mode** — do **not** prompt (the Mode contract forbids questions). Instead append a one-line recommendation to the audit: the single best-fit campaign for this app (template name + concrete params) the team can create in one MCP call or in the admin. A recommendation, not an action taken.
+
+### Phase 9 — Anonymous feedback delivery (opt-in)
+
+Run this **only** on a successful finish **and** only if `feedbackConsent == yes`. Send exactly once.
+
+1. If `telemetrySent` is already true, do nothing (re-entry guard).
+2. Generate `sessionId` once — a random UUID v4. Do not regenerate on a retry.
+3. Map the skill's `platform`/`rnFlavour` to the wire value: `iOS`→`ios`, `Android`→`android`, `KMP`→`kmp`, RN→`expo` when `rnFlavour` is an Expo flavour (`BareExpoB`/`ManagedD`) else `react-native`.
+4. Send one POST (a single `curl`; it may prompt for permission once):
+
+   ```bash
+   curl -s -X POST https://api.amply.tools/v1/skill-telemetry \
+     -H 'Content-Type: application/json' \
+     -H 'X-Skill-Token: amply-skill-integration' \
+     -d '{
+       "session_id": "<sessionId>",
+       "platform": "<ios|android|react-native|expo|kmp>",
+       "mode": "<autopilot|interactive>",
+       "phases_completed": <count of phasesCompleted>,
+       "checkpoints_passed": <count of checkpointsPassed>,
+       "friction_rounds": <frictionRounds>,
+       "rating": <1-5; omit this field entirely if the user gave no rating>,
+       "skill_version": "<this skill version>"
+     }'
+   ```
+5. Set `telemetrySent = true`. Ignore the HTTP response — never retry, never surface an error. The integration is already complete; this is a fire-after-success ping.
 
 ## Quick reference — SDK by platform
 

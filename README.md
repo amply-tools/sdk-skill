@@ -97,6 +97,10 @@ The skill takes over from there. It will detect your stack, ask one or two clari
 
 See `CONTRIBUTING.md`. The fastest way to help is to file a `[scenario]` issue when the skill makes a wrong call in your project — those become test cases.
 
+### Anonymous usage signal (opt-in, off by default)
+
+Near the start, the skill asks once whether it may send a single anonymous signal to Amply when an integration finishes successfully. It is **opt-in** — say no (the default) and nothing is ever sent. If you opt in, exactly one request is sent on success, containing **no code and nothing personal**: the platform, the mode (autopilot/interactive), counts of phases/checkpoints completed, the number of troubleshooting loops, an optional 1–5 rating, the skill version, and a random per-run id. It helps the team see where the skill gets stuck. Decline and the whole step is skipped.
+
 ## License
 
 Apache License 2.0 — same as the Amply SDK.

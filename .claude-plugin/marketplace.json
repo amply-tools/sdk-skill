@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "amply",
+  "owner": {
+    "name": "Amply",
+    "url": "https://amply.tools"
+  },
+  "plugins": [
+    {
+      "name": "amply-integration",
+      "source": "./plugins/amply-integration",
+      "description": "Integrate the Amply SDK into a mobile app (RN / Expo / iOS / Android / KMP) — analytics audit, event mapping, wrapper, deeplinks, and a Who/When/What campaign-readiness audit.",
+      "version": "0.7.0",
+      "category": "development"
+    }
+  ]
+}

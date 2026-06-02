@@ -20,41 +20,51 @@ The output is real code changes plus an `amply-audit.md` report the team can act
 
 ## Install
 
-### Recommended — via the `skills` CLI
+### Recommended — the `skills` CLI (works everywhere)
 
-Works for Claude Code, Codex CLI, Cursor, Windsurf, and any other host the `skills` CLI supports:
+One command, every supported agent CLI. The [`skills` CLI](https://skills.sh/) installs into whichever agent it detects (and `-a` targets a specific one):
 
-```bash
-npx skills add amply-tools/sdk-skill
-```
+| Agent CLI | Install command |
+|---|---|
+| **Claude Code** | `npx skills add amply-tools/sdk-skill -a claude-code` |
+| **Codex CLI** | `npx skills add amply-tools/sdk-skill -a codex` |
+| **GitHub Copilot CLI** | `npx skills add amply-tools/sdk-skill -a copilot` |
+| **Gemini CLI** | `npx skills add amply-tools/sdk-skill -a gemini` |
+| **All detected agents** | `npx skills add amply-tools/sdk-skill -a '*'` |
 
-Add `-g` to install at the user level instead of project level. See `npx skills --help` for per-agent install (`-a claude-code`, `-a codex`, etc.).
+Omit `-a` to install into the agent the CLI auto-detects. Add `-g` for a user-level (global) install instead of the current project. Run `npx skills --help` for the full flag list, and `npx skills add amply-tools/sdk-skill --list` to preview what would be installed.
 
 After install, the skill is available in any session — phrases like *"integrate Amply"* or *"add the Amply SDK"* will trigger it.
 
-### Manual — Claude Code (per user)
+> **Note on Copilot / Gemini agent keys:** the `-a` agent identifiers above follow the `skills` CLI's own naming. If one is rejected, run `npx skills add amply-tools/sdk-skill` with no `-a` and pick the agent from the interactive list, or check `npx skills --help` for the current identifier.
+
+### Claude Code — as a plugin (one-line marketplace install)
+
+This repo doubles as a single-plugin Claude Code marketplace. Inside Claude Code:
+
+```text
+/plugin marketplace add amply-tools/sdk-skill
+/plugin install amply-integration@amply
+```
+
+`amply` is the marketplace name (from `.claude-plugin/marketplace.json`); `amply-integration` is the plugin. The skill then loads as `amply-integration` in every session. Update later with `/plugin marketplace update amply`.
+
+### Manual install (any host)
+
+Clone straight into the agent's skills directory — the skill is plain Markdown, no build step:
+
+| Host | Destination |
+|---|---|
+| Claude Code (per user) | `~/.claude/skills/amply-integration` |
+| Codex CLI | `~/.agents/skills/amply-integration` |
+| Any agentskills.io host | the host's per-user skills directory |
 
 ```bash
 git clone https://github.com/amply-tools/sdk-skill.git \
-  ~/.claude/skills/amply-integration
+  ~/.claude/skills/amply-integration   # adjust the path per the table above
 ```
 
-### Manual — Claude Code (as a plugin)
-
-Drop the folder inside your plugin's `skills/` directory. The plugin loader picks it up automatically.
-
-### Manual — Codex CLI
-
-```bash
-git clone https://github.com/amply-tools/sdk-skill.git \
-  ~/.agents/skills/amply-integration
-```
-
-Codex auto-discovers skills from `~/.agents/skills/`. Verify with `codex --help` that the spec hasn't changed since the last release of this README.
-
-### Other hosts
-
-Anywhere that supports the agentskills.io specification — drop the folder in the host's per-user skills directory. The frontmatter and Markdown body are runtime-agnostic.
+The frontmatter and Markdown body are runtime-agnostic, so any host that follows the [agentskills.io specification](https://agentskills.io/specification) can load it.
 
 ## Use it
 
@@ -80,6 +90,8 @@ The skill takes over from there. It will detect your stack, ask one or two clari
 | `SKILL.md` | Main entry point — frontmatter + 9-phase workflow. |
 | `CONTRIBUTING.md` | How to give feedback and improve the skill. |
 | `LICENSE` | Apache 2.0. |
+| `.claude-plugin/marketplace.json` | Claude Code marketplace manifest (lists the one plugin). |
+| `plugins/amply-integration/` | Claude Code plugin wrapper — `plugin.json` + the skill symlinked from the root `SKILL.md` / `references/`. |
 | `references/sdk-cheatsheet-{rn,ios,android,kmp}.md` | Per-platform copy-paste-correct API reference. |
 | `references/analytics-detection.md` | ≥25 analytics-vendor fingerprints. |
 | `references/wrapper-patterns.md` | Wrapper templates (TS / Swift / Kotlin / KMP). |

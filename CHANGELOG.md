@@ -2,6 +2,19 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — Unreleased
+
+## [0.7.0] — 2026-06-02
+
+### Added
+- **Claude Code plugin distribution** — the repo now doubles as a single-plugin Claude Code marketplace: `.claude-plugin/marketplace.json` at the root plus `plugins/amply-integration/` (its own `.claude-plugin/plugin.json`, with the skill symlinked from the canonical root `SKILL.md` + `references/` so there is a single source of truth). Install with `/plugin marketplace add amply-tools/sdk-skill` then `/plugin install amply-integration@amply`. The existing `npx skills add` path is unchanged — verified the `skills` CLI still reports "Found 1 skill" with the plugin tree present (default and `--full-depth` scans).
+- **Multi-CLI install table in the README** — one-line install rows for Claude Code, Codex CLI, GitHub Copilot CLI, and Gemini CLI via the `skills` CLI's `-a <agent>` flag, plus the Claude Code plugin-marketplace one-liner.
+- **Phase 0.7 — Pre-approve Amply network calls (Claude Code only)** — idempotently adds `curl` allow-rules to `.claude/settings.local.json` so later phases don't interrupt the run with permission prompts: a `docs.amply.tools` GET pattern always, and the `api.amply.tools/v1/skill-telemetry` POST pattern only when `feedbackConsent == yes`. Skipped silently on non-Claude-Code hosts. New `curlPreApproved` state variable.
+- **Opt-in anonymous telemetry** (Phase 0.6 consent + Phase 9 delivery) — single anonymous success signal, off by default; no code or PII, only platform/mode/phase-counts/friction/rating/version/random id. (Shipped to `main` after the 0.6.0 tag; logged here as it lands in this release.)
+
+### Changed
+- README install section reorganised around the multi-CLI table + plugin one-liner; the old per-host prose blocks are folded into a compact "Manual install" table.
+
 ## [0.6.0] — 2026-05-30
 
 ### Added

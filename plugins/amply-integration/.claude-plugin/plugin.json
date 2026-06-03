@@ -1,7 +1,7 @@
 {
   "name": "amply-integration",
   "description": "Walks an AI agent through integrating the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — end to end: analytics audit, event/Custom-Property mapping, wrapper generation, deeplink wiring, and a Who/When/What campaign-readiness audit.",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "author": {
     "name": "Amply",
     "url": "https://amply.tools"

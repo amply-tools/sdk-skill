@@ -2,7 +2,17 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0] — Unreleased
+## [0.8.0] — 2026-06-03
+
+### Changed
+- **Plugin marketplace moved to a dedicated catalog repo** to remove install-command confusion. The Claude Code marketplace now lives at `amply-tools/claude-plugins` (marketplace name `amply`) and references this repo's plugin via a `git-subdir` source. New install commands:
+  - `/plugin marketplace add amply-tools/claude-plugins` (registers Amply's plugin catalog — installs nothing)
+  - `/plugin install amply-integration@amply` (installs the skill)
+  The previous form (`/plugin marketplace add amply-tools/sdk-skill`) read like it was installing the skill; the catalog repo makes step 1 clearly "add Amply's catalog". The `npx skills add amply-tools/sdk-skill` path is unchanged.
+- **Plugin subtree now holds real file copies, not symlinks.** A cross-repo `git-subdir` sparse clone can't follow symlinks into the repo root, so `plugins/amply-integration/skills/amply-integration/` contains real copies of `SKILL.md` + `references/`, regenerated from the canonical root by `scripts/sync-plugin.sh`. `scripts/sync-plugin.sh --check` is a release gate that fails on drift. The root `SKILL.md` remains the single source of truth.
+
+### Removed
+- `.claude-plugin/marketplace.json` from this repo (the catalog moved to `amply-tools/claude-plugins`).
 
 ## [0.7.0] — 2026-06-02
 

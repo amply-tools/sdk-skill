@@ -2,6 +2,14 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-06-10
+
+### Added
+- **SDK version-upgrade gate (all platforms)** — a new cross-platform "Version bumps (any platform)" note in Phase 7 plus an "Upgrading the SDK version" section in every platform cheatsheet (iOS SPM **and** CocoaPods, Android / Gradle, React Native, KMP). Changing a version pin does **not** take effect until a forced re-resolve: every platform has a dependency cache (SwiftPM `SourcePackages`, CocoaPods, Gradle `~/.gradle/caches`, npm `node_modules` + Metro) that keeps serving the old binary while the pin *looks* correct, and a pin edit that's never rebuilt + re-released changes nothing users run. Per platform the skill now forces a real re-resolve / re-fetch (never deferring to an incremental IDE sync or the human's "Resolve Package Versions" click), verifies the **resolved** version at both the manifest and the fetched / native layer (SPM checkout tag, `Podfile.lock`, Gradle `dependencyInsight`, RN JS + native both), rebuilds + re-ships, and — the one check identical on every platform — confirms the running build reports the expected `sdkVersionNormalized` in its session. RN's two-layer (JS vs native) mismatch and Android's forced / BOM override are called out explicitly.
+
+### Changed
+- Phase 7 verification no longer cites a stale pinned iOS version; the "Resolve Package Versions" Xcode-UI action is reclassified as an agent-run CLI resolve, and the Android check now asserts the *resolved* version (`dependencyInsight`) rather than the declared literal.
+
 ## [0.8.0] — 2026-06-03
 
 ### Changed

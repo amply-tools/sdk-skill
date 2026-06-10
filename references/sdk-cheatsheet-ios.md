@@ -22,6 +22,31 @@ pod 'AmplySDK', '~> 0.1'
 
 Then `pod install`.
 
+## Upgrading the SDK version — resolve, verify, rebuild, re-ship
+
+Changing the pinned version (in `Package.swift`, the Xcode package UI, or `Package.resolved`) is **not** enough on its own. `AmplySDK` is a **binary `.xcframework` target**, so SwiftPM keeps linking a previously-resolved checkout/artifact from the DerivedData `SourcePackages` cache until you force a re-resolve. A naive rebuild then silently links the **old** binary — and the version pin will *look* correct in `Package.resolved` the whole time.
+
+After any version change, do all four — and run them yourself; do **not** defer the resolve to the human's "Resolve Package Versions" click:
+
+1. **Force a clean resolve** (CLI, not the Xcode UI):
+   ```bash
+   xcodebuild -resolvePackageDependencies -project <App>.xcodeproj -scheme <Scheme>
+   ```
+   If the checkout doesn't move to the target version (binary-target cache staleness), clear the cache and resolve again:
+   ```bash
+   rm -rf <DerivedData>/SourcePackages    # e.g. ~/Library/Developer/Xcode/DerivedData/<App>-*/SourcePackages
+   xcodebuild -resolvePackageDependencies -project <App>.xcodeproj -scheme <Scheme>
+   ```
+2. **Verify the resolved version** — the SPM twin of the CocoaPods `Podfile.lock` check. Both the pin **and** the on-disk checkout must read the target version:
+   ```bash
+   grep -A3 amply-sdk-ios <App>.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved   # → "version" : "<X>"
+   git -C <DerivedData>/SourcePackages/checkouts/amply-sdk-ios describe --tags                        # → <X>
+   ```
+3. **Rebuild** — and, for a shipped app, **re-archive + re-upload**. A pin edit that never produced a new build means users still run the old SDK: "edited `Package.resolved`" ≠ "shipped the new SDK".
+4. **Confirm at runtime which SDK actually ran.** Launch the build and check that the device's session reports the expected `sdkVersionNormalized` (visible in the Amply admin / session payload). This is the decisive check — it catches a stale binary that steps 1–3 can all miss. Note: SDK **≤ 0.5.0 hard-coded `sdkVersionNormalized` to `1.0.0`**, so this assertion only becomes meaningful once the build is ≥ 0.5.1 (build-time version); below that, rely on the `git describe` check in step 2.
+
+**CocoaPods variant.** `pod install` alone will **not** move you within an allowed range — it honours the existing `Podfile.lock`. To upgrade: bump the `Podfile` constraint if needed, then `pod update AmplySDK` (if it doesn't move, clear a stale cached pod with `pod cache clean AmplySDK` first). Verify `AmplySDK (<X>)` in `Podfile.lock`, then rebuild and run the same runtime `sdkVersionNormalized` check (step 4).
+
 ## Initialize — `AppDelegate` (UIKit) or `@main App` (SwiftUI)
 
 `AmplyConfig` from Swift takes **six positional parameters**. The last three accept `nil` but you must pass them — Kotlin's default values do not propagate through the XCFramework's Swift import.
@@ -309,4 +334,4 @@ xcrun simctl spawn booted log stream --predicate 'subsystem CONTAINS "amply"'
 
 ## ATT / IDFA
 
-Refresh device properties after the user grants ATT permission so the cached values match the new state. The SDK exposes a `refreshProperties()` (or equivalent) on its device dataset — see the iOS sample apps in `multiplatform-library-template/samples/`.
+Refresh device properties after the user grants ATT permission so the cached values match the new state. The SDK exposes a `refreshProperties()` (or equivalent) on its device dataset — see the published iOS sample apps.

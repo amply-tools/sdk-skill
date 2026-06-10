@@ -4,7 +4,7 @@
 
 ## What the SDK already does correctly
 
-- **IDFA (Apple advertising identifier)** is read only if `ATTrackingManager.trackingAuthorizationStatus() == Authorized`. If not authorised, the SDK ships `null` for IDFA. Source: `multiplatform-library-template/library/src/iosMain/.../DeviceDataSetImpl.kt:49-63`.
+- **IDFA (Apple advertising identifier)** is read only if `ATTrackingManager.trackingAuthorizationStatus() == Authorized`. If not authorised, the SDK ships `null` for IDFA.
 - **The SDK does NOT call `requestTrackingAuthorization`.** Showing the ATT prompt is host-app responsibility, not Amply's. Whatever ATT result your app already has, Amply respects it.
 - **Everything else** — IDFV (per-vendor uuid), device model, OS version, locale, app version — is shipped to your own Amply backend as first-party product context. None of it is "tracking" in the ATT/GDPR-consent sense.
 

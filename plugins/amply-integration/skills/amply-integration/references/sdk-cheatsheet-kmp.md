@@ -2,7 +2,7 @@
 
 Package: `tools.amply:sdk-kmp` (KMP metadata) plus per-target artefacts (`tools.amply:sdk-android`, native iOS variants via the published XCFramework).
 
-> **Note on authority:** the KMP-side public surface (constructor shape across `androidMain`/`iosMain`, `expect/actual` boundaries) is not exhaustively documented in `landing/docs/amply-capabilities-reference.md` — that file documents the Android / iOS / RN public surfaces. The patterns below are **inferred from `multiplatform-library-template/` samples**. Verify against the SDK source for the version you pin before relying on a specific shape, and add a `[fix]` issue if you find a discrepancy.
+> **Note on authority:** the KMP-side public surface (constructor shape across `androidMain`/`iosMain`, `expect/actual` boundaries) is not exhaustively covered by the public Amply docs, which document the Android / iOS / RN public surfaces. The patterns below are **inferred from the published KMP sample apps**. Verify against the SDK for the version you pin before relying on a specific shape, and add a `[fix]` issue if you find a discrepancy.
 
 In a KMP project, you typically:
 
@@ -27,6 +27,10 @@ kotlin {
 ```
 
 For iOS framework consumers (XcodeGen / SwiftUI app shell), the published XCFramework wraps the same library — see `sdk-cheatsheet-ios.md`.
+
+## Upgrading the SDK version
+
+Same mechanics as Android for the Gradle artefacts (`tools.amply:sdk-kmp` + per-target `tools.amply:sdk-android`): force a re-resolve and verify the **resolved** version, not the declared literal — see `sdk-cheatsheet-android.md` → "Upgrading the SDK version" (`--refresh-dependencies`, `dependencyInsight`). The iOS framework consumer follows `sdk-cheatsheet-ios.md` → "Upgrading the SDK version" (SPM or CocoaPods). In every case the decisive check is identical: the running build's session reports the expected `sdkVersionNormalized` (SKILL.md Phase 7 "Version bumps (any platform)").
 
 ## Shared init module
 
@@ -172,7 +176,7 @@ Both follow the **same** signature (`onDeepLink(url, info) -> Bool`).
 
 ## Module layout
 
-The KMP source-set structure (mirroring `multiplatform-library-template/library/src/`):
+The KMP source-set structure (mirroring the SDK's `library/src/` layout):
 
 ```
 commonMain/

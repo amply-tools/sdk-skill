@@ -20,7 +20,23 @@ Or `app/build.gradle` (Groovy):
 implementation 'tools.amply:sdk-android:0.1.9'
 ```
 
-Pin to the latest release — check `multiplatform-library-template/gradle.properties` (`VERSION_NAME`) or Maven Central.
+Pin to the latest release — check Maven Central for the current version.
+
+## Upgrading the SDK version — bump, refresh, verify, rebuild
+
+Editing the version literal isn't enough. Gradle caches resolved modules in `~/.gradle/caches`, and a dynamic version (`+` / `latest.release`), a `resolutionStrategy.force`, or a BOM / platform constraint can hold or override what actually resolves. After changing the version:
+
+1. **Refresh + re-resolve** — don't rely on the IDE's incremental sync:
+   ```bash
+   ./gradlew :app:dependencies --refresh-dependencies > /dev/null
+   ```
+2. **Verify the *resolved* version** — what Gradle actually selected, including any forced override (not just the declared literal):
+   ```bash
+   ./gradlew :app:dependencyInsight --dependency tools.amply:sdk-android --configuration debugRuntimeClasspath
+   # → tools.amply:sdk-android:<X> (selected). A "<Y> -> <X>" line means something is forcing the version.
+   ```
+3. **Rebuild** — `./gradlew :app:assembleDebug` (or your variant).
+4. **Confirm at runtime** — per SKILL.md Phase 7 "Version bumps (any platform)": the device session must report the expected `sdkVersionNormalized`.
 
 ## Initialize — in `Application.onCreate`
 

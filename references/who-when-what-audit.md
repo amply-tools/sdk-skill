@@ -10,10 +10,15 @@ Amply matches users with a combination of:
 |---|---|
 | **Device properties** (auto-collected) | Countries (include/exclude), OS Version, App Version, App Install Version, Applications, Install Date |
 | **Custom Properties** (set by the app) | Any key the app pushes via `setCustomProperty` / `setCustomProperties`. Operators: `=`, `≠`, `>`, `<`, `≥`, `≤`, `is set`, `is not set` (depending on type) |
+| **Event history** (recorded by the SDK; **Amply SDK 0.6.1+**) | Any event the app fires via `track()`. Two condition kinds: **count** — how many times the event has happened (`exactly`, `not exactly`, `more than`, `fewer than`, `at least`, `at most`), plus `has happened` (ever) / `has never happened`; **date** — when it first or last happened, relative (`more than N days ago` — with an "…or never" variant — / `within the last N days`) or absolute (`before` / `after` a date, whole UTC days). Event property filters narrow which occurrences count — `equals` / `not equals` for text values, plus `greater than` / `less than` for numbers — and apply to both counts and dates. Up to **20 event conditions per campaign**. |
+
+**Event-history caveats for the audit:**
+
+- Only apps running **Amply SDK 0.6.1+** match event conditions — devices on older SDK builds simply don't match those campaigns. For fleets with older installed builds, counter Custom Properties remain the fallback (see `custom-properties.md` § Counter properties).
+- History starts at install — events fired before the app shipped with the Amply SDK don't exist. Evaluation happens on-device and works offline.
 
 **Not available as built-in targeting:**
 
-- "User has fired event X N times" — workaround: maintain a counter Custom Property (see `custom-properties.md`).
 - Cohort intersection / set membership beyond the simple compare operators.
 - AI-powered segmentation — long-term roadmap, not buildable today.
 
@@ -22,9 +27,10 @@ Amply matches users with a combination of:
 | Field | Example |
 |---|---|
 | Required device properties | `country = US`, `app_version >= 2.0.0` |
-| Required Custom Properties | `subscription_status = 'free'`, `paywall_view_count >= 3` |
-| Already populated? | ✅ `subscription_status` set from RevenueCat. ❌ `paywall_view_count` not set. |
-| Action | App needs a counter — see Phase 3.6. |
+| Required Custom Properties | `subscription_status = 'free'` |
+| Required event history | `PaywallShown` happened `at least` 3 times (Amply SDK 0.6.1+) |
+| Already populated? | ✅ `subscription_status` set from RevenueCat. ✅ `PaywallShown` fires from `src/paywall.tsx:42`. |
+| Action | None — the event condition needs no app code. (Fleet below SDK 0.6.1? Fall back to a `paywall_view_count` counter — see `custom-properties.md`.) |
 
 ## When — triggering
 
@@ -137,7 +143,7 @@ For each Amply core use case from the product overview, the audit should produce
 
 ### 6. RateReview after positive moment
 
-- **Who** — `total_purchases >= 1` OR `nps_score >= 9`.
+- **Who** — event condition `Purchase` happened `at least` 1 time (Amply SDK 0.6.1+; below that, `total_purchases >= 1` counter) OR `nps_score >= 9`.
 - **When** — event such as `PurchaseCompleted` or `LessonCompleted`, `Repeat Rule: on 1`, `Frequency Limit: lifetime 1`.
 - **What** — `RateReview`.
 

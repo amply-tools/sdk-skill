@@ -35,6 +35,7 @@ Both lists are explicit sections in the output (§ 8 and § 9 below).
 - RN New Architecture:       <yes | no | n/a>
 - Existing consent framework: <ATT | UMP | OneTrust | Didomi | custom | none>
 - Version gates passed:      <list> | failed: <list>
+- Amply SDK pinned:          <version — 0.6.1+ unlocks event-history targeting>
 - bundleId / applicationId:  <com.acme.app>
 - Amply app resolution:      <created | reused | reused_new_key>
 
@@ -85,7 +86,7 @@ Baseline + project-detected. Set in the wrapper on session start (and on state c
 |---|---|---|---|
 | `subscription_status` | String | RevenueCat `CustomerInfo` | ✅ (Phase 2 detected at `src/billing/sync.ts:42`) |
 | `trial_ends_at` | DateTime (epoch ms) | RevenueCat | ❌ — missing from current writes |
-| `paywall_view_count` | Number | App counter (needs counter pattern) | ❌ |
+| `paywall_view_count` | Number | App counter — only if the fleet runs Amply SDK < 0.6.1; on 0.6.1+ target the `PaywallShown` event count directly (no property needed) | ❌ |
 | `onboarding_completed` | Boolean | App | ✅ |
 | `locale` | String | OS | ❌ |
 | `install_date` | DateTime | App (first-launch persisted) | ❌ |
@@ -121,10 +122,10 @@ Baseline + project-detected. Set in the wrapper on session start (and on state c
 
 | | |
 |---|---|
-| **Who** | `total_purchases >= 1`. |
+| **Who** | Event condition: `Purchase` happened `at least` 1 time (Amply SDK 0.6.1+; fleet below that → `total_purchases >= 1` counter property). |
 | **When** | `Purchase`, `Repeat Rule: on 1`, `Frequency Limit: lifetime 1`. |
 | **What** | `RateReview`. |
-| **Gaps** | None — both event and Custom Property are wired. ⚠ Android: works only in Play-Store-distributed release builds. |
+| **Gaps** | None — the `Purchase` event is wired, and the event condition needs no extra app code. ⚠ Android: works only in Play-Store-distributed release builds. |
 
 ## 7. Mode-pinned decisions
 

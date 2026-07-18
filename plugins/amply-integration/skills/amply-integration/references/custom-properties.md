@@ -64,7 +64,7 @@ The skill should propose this set on every integration unless the user opts out.
 | `trial_ends_at` | DateTime (native) / number (RN, epoch) | RevenueCat `CustomerInfo.entitlements.trialPeriodEndDate` | `1718640000` |
 | `last_paywall_view_at` | DateTime / number | App-side, stamped on paywall view | |
 | `total_purchases` | Number | App-side counter; bump on each `Purchase` event | `3` |
-| `paywall_view_count` | Number | Counter property — see "Counter properties" below | `7` |
+| `paywall_view_count` | Number | Counter property — fallback only; on Amply SDK 0.6.1+ target the `PaywallShown` event count directly (see "Counter properties" below) | `7` |
 | `onboarding_completed` | Boolean | App-side, set when the last onboarding step finishes | `true` |
 | `onboarding_completed_at` | DateTime / number | Same | |
 | `locale` | String | OS locale at session start | `'en-US'` |
@@ -75,9 +75,16 @@ The skill should propose this set on every integration unless the user opts out.
 | `referral_source` | String | If your install attribution carries one | `'tiktok'` |
 | `feature_flags_active` | String | Comma-separated active flags (since arrays aren't supported) | `'new_paywall_v2,grouped_settings'` |
 
-## Counter properties — the workaround for "fire after Nth event"
+## Counter properties — the fallback for "fire after Nth event"
 
-Amply does **not** support "user fired event X N times" as a built-in targeting condition. The supported pattern is:
+For apps running **Amply SDK 0.6.1+**, "user fired event X N times" **is a built-in targeting condition** — campaign audience rules target events directly (occurrence counts, has-ever / has-never, first/last-occurrence dates, event property filters; up to 20 event conditions per campaign). Prefer that over counters — no app code, no persistence, no write-ordering concerns. See `who-when-what-audit.md` § Who for the full operator vocabulary.
+
+Counter Custom Properties remain the right tool in two cases:
+
+1. **Older installed builds** — devices running an Amply SDK below 0.6.1 never match event conditions; a `*_count` property targets every SDK version the fleet still runs.
+2. **Derived state that isn't a single event** — a count that aggregates several events, applies business logic before counting, or must be reset by the app (e.g. "streak length", "items in cart").
+
+The counter pattern, when you need it:
 
 1. Maintain a counter in app code (persisted in storage).
 2. Increment when the event fires.
@@ -93,7 +100,7 @@ function recordPaywallView() {
 }
 ```
 
-The audit must list every "after N times" rule the team wants and the matching counter properties needed.
+The audit must list every "after N times" rule the team wants and, per rule, whether a direct event condition (Amply SDK 0.6.1+) or a counter property serves it.
 
 ## Properties to NOT set as Custom Properties
 
@@ -112,5 +119,5 @@ The Phase 3.4 / 3.5 output should include a table:
 | Property | Type | Already set? | Source | Why we want it |
 |---|---|---|---|---|
 | `subscription_status` | String | ❌ | RevenueCat | Required for paywall versioning campaigns |
-| `paywall_view_count` | Number | ❌ | App counter | Needed to gate post-3rd-view offers |
+| `paywall_view_count` | Number | ❌ | App counter | Only if the fleet runs Amply SDK < 0.6.1 — otherwise target `PaywallShown` count directly |
 | `onboarding_completed` | Boolean | ✅ (already set) | App | Required for entry-based onboarding routing |

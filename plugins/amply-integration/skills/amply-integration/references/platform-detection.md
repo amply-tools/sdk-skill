@@ -123,6 +123,8 @@ Stop and warn the user when any of these fail:
 | iOS deployment target (KMP / native) | `>= 14.1` | KMP capabilities reference |
 | Kotlin compiler | KMP-compatible Kotlin (1.9+) for KMP projects | Inferred from KMP samples |
 
+**Amply SDK floor (capability axis, not a stop-gate):** alongside the host-platform gates above, record which **Amply SDK version** the project pins. Event-history audience targeting (event counts, first/last-occurrence dates, event property filters) only matches apps running **Amply SDK 0.6.1+** — devices on older SDK builds don't fail, they simply never match campaigns that use event conditions. Pin `0.6.1` or later on new integrations (the install snippets in every `sdk-cheatsheet-*.md` do); for an existing integration, note the pinned version in the audit so the team knows which targeting vocabulary their fleet supports.
+
 **How to check:**
 
 - React Native: `npx react-native --version` or read `package.json` → `react-native`.
@@ -144,4 +146,5 @@ Min OS / SDK versions:     <iOS x.x | Android api xx>
 RN New Architecture:       <yes | no | n/a>
 Existing consent framework: <ATT | UMP | OneTrust | Didomi | custom | none>
 Version gates passed:      <list> | failed: <list>
+Amply SDK pinned:          <version — 0.6.1+ unlocks event-history targeting>
 ```

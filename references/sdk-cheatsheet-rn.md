@@ -7,10 +7,12 @@ The RN SDK exposes a **module with static-style methods** — different from the
 ## Install
 
 ```bash
-yarn add @amplytools/react-native-amply-sdk
-# or: npm install @amplytools/react-native-amply-sdk
-# or: pnpm add @amplytools/react-native-amply-sdk
+yarn add @amplytools/react-native-amply-sdk@^0.6.1
+# or: npm install @amplytools/react-native-amply-sdk@^0.6.1
+# or: pnpm add @amplytools/react-native-amply-sdk@^0.6.1
 ```
+
+**Pin at least `0.6.1`**: event-history audience targeting (Amply SDK 0.6.1+) only matches apps running 0.6.1 or later — older builds silently don't match those campaigns. The npm package pins the matching native SDK (iOS Pod / Android Gradle) via its podspec / `build.gradle`.
 
 **Config plugin in `app.json` — only for Expo Prebuild Workflow or Expo Managed projects.** Identify your RN flavour via `references/platform-detection.md` §2 *before* touching `app.json`.
 
@@ -219,7 +221,7 @@ if (decision.outcome === 'proceed') {
 
 - React Native ≥ 0.79, **New Architecture enabled** (Bridgeless / Fabric / TurboModules).
 - Expo SDK ≥ 53.
-- Android API 24+; **iOS 15.1+** (the bundled `AmplyReactNative.podspec` in `0.2.x` declares `platforms = { :ios => '15.1' }` and depends on the native `AmplySDK ~> 0.2.5`). Older RN-SDK READMEs say iOS 13.0+; the package actually fails `pod install` below 15.1. Verify against the podspec of the version you pin.
+- Android API 24+; **iOS 15.1+** (the bundled `AmplyReactNative.podspec` declares `platforms = { :ios => '15.1' }` and depends on the matching native `AmplySDK` release — `~> 0.6.1` when the npm package is `0.6.1`). Older RN-SDK READMEs say iOS 13.0+; the package actually fails `pod install` below 15.1. Verify against the podspec of the version you pin.
 
 ## Common mistakes (rewrite on sight)
 

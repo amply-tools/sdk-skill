@@ -19,7 +19,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation("tools.amply:sdk-kmp:0.1.9")
+                implementation("tools.amply:sdk-kmp:0.6.1")
             }
         }
     }
@@ -27,6 +27,8 @@ kotlin {
 ```
 
 For iOS framework consumers (XcodeGen / SwiftUI app shell), the published XCFramework wraps the same library — see `sdk-cheatsheet-ios.md`.
+
+**Pin at least `0.6.1`**: event-history audience targeting (Amply SDK 0.6.1+) only matches apps running 0.6.1 or later — older builds silently don't match those campaigns.
 
 ## Upgrading the SDK version
 

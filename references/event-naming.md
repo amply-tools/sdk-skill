@@ -106,7 +106,7 @@ When the user adds **new** events specifically for Amply targeting (post-trial r
 
 - Event name: PascalCase, no underscores, no dots.
 - Property keys: snake_case, no leading numbers.
-- Reserve `_count` suffix for counter properties.
+- Reserve `_count` suffix for counter properties (legacy fallback — apps on Amply SDK 0.6.1+ target event history directly; see `custom-properties.md` § Counter properties).
 - Reserve `_at` suffix for timestamps (DateTime / epoch number).
 
 ## Don't double-count

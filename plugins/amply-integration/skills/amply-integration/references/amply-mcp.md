@@ -37,9 +37,13 @@ If present, you have access to a known set of tools all prefixed `amply_`. The t
 | `amply_create_application` | First-time registration of the app. Returns the first API key in the response. |
 | `amply_create_api_key` | Need an additional key (key rotation, separate scope). |
 | **`amply_ensure_app`** | **Recommended primary entry** — idempotent project + app + key resolution with cross-project conflict guard and explicit `mintNewKey` opt-in. Returns one of `created` / `reused` / `reused_new_key` / `conflict_cross_project`. |
-| `amply_create_campaign` | Create a campaign from a full definition — event property filters via `params`, every-N `repeat`, full device/customProperty targeting. Always created in Draft state. |
+| `amply_list_campaigns` | You have a `projectId` and want to enumerate its campaigns (id, name, type, state per campaign). Read-only. |
+| `amply_get_campaign` | You have a campaign id and want its full triggering / targeting / content for inspection. Read-only. |
+| `amply_set_campaign_state` | Flip a campaign between `Draft` / `Active` / `Cancel`. Authoring tools always create in Draft; this is how a reviewed campaign goes live (or a live one gets paused — Cancel pauses, never deletes). |
+| `amply_create_campaign_from_template` | Create a campaign in Draft from a whitelisted known-good template (`rate-review-after-positive-moment`, `deeplink-on-session-n`, `deeplink-on-property-change`, …) — the safest authoring path when a template fits. |
+| `amply_create_campaign` | Create a campaign from a full definition — event property filters via `params`, every-N `repeat`, device / customProperty / event-history targeting (event-count and first/last-occurrence date conditions with per-event property filters; up to 20 event conditions per campaign, matched only by apps on Amply SDK 0.6.1+). Always created in Draft state. |
 | `amply_update_campaign` | Edit a campaign in place; top-level replace of provided fields; current state preserved for fields not supplied. |
-| `amply_describe_targeting` | Describe the targeting + triggering vocabulary available — slots, comparators, and predicate shapes — so agents can discover the campaign-authoring vocabulary before calling `amply_create_campaign`. |
+| `amply_describe_targeting` | Describe the targeting + triggering vocabulary available — slots (device, Custom Property, event count, event date), comparators, and predicate shapes — so agents can discover the campaign-authoring vocabulary before calling `amply_create_campaign`. |
 
 ## Removed tools
 

@@ -10,17 +10,17 @@ In `app/build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("tools.amply:sdk-android:0.1.9")
+    implementation("tools.amply:sdk-android:0.6.1")
 }
 ```
 
 Or `app/build.gradle` (Groovy):
 
 ```groovy
-implementation 'tools.amply:sdk-android:0.1.9'
+implementation 'tools.amply:sdk-android:0.6.1'
 ```
 
-Pin to the latest release — check Maven Central for the current version.
+Pin to the latest release — check Maven Central for the current version. **Pin at least `0.6.1`**: event-history audience targeting (Amply SDK 0.6.1+) only matches apps running 0.6.1 or later — older builds silently don't match those campaigns.
 
 ## Upgrading the SDK version — bump, refresh, verify, rebuild
 

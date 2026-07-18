@@ -4,6 +4,8 @@ Some SDKs are the **source of truth** for events the team wants to see in Amply,
 
 This reference tells the audit (Phase 2) what to do when it detects these patterns: don't treat the SDK call as an event or property-write detect, **but** check whether a parallel app-side bridge to Amply exists. If not — flag in Observations with the recommended wiring location and what props to capture. Per the SKILL.md Scope discipline rule, the skill does **not** write the bridge code automatically (interactive mode may offer to draft it; autopilot just observes).
 
+**Why a bridge pays twice (Amply SDK 0.6.1+):** a forwarded event is not just a campaign trigger — it becomes an **audience condition**. Once `Purchase` is bridged, campaigns can target *"`Purchase` happened at least 2 times"* or *"first `PaywallShown` more than 7 days ago"* — with event property filters (e.g. only purchases where `currency` equals `"USD"`) — and no further app code. An unbridged SDK keeps that entire targeting axis invisible to Amply, so a missing bridge now costs both the trigger **and** the Who side of every future campaign.
+
 ## The bridges
 
 | 3rd-party SDK | Detect pattern | Natural hook for Amply bridge | Recommended Amply event / write | Recommended props |

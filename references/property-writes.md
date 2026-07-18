@@ -74,6 +74,8 @@ For each detected property-write call:
 6. Otherwise → mirror to Amply.setCustomProperty
 ```
 
+Note on `*_count` keys in the mutable baseline (`total_purchases`, `paywall_view_count`, …): these mirror event occurrences. On **Amply SDK 0.6.1+** campaigns target event history directly (counts, first/last occurrence, property filters), so a *missing* counter is not automatically a gap — flag it only if the fleet runs older SDK builds or the count is derived state a single event can't express. See `custom-properties.md` § Counter properties.
+
 ## How property writes interact with `*_changed` events
 
 Many apps fire a parallel `*_changed` event right next to a property-write:

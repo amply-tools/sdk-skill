@@ -55,7 +55,7 @@ Always list the keys + chosen strategy in `amply-audit.md` so the team can adjus
 
 ## Recommended baseline catalogue
 
-The skill should propose this set on every integration unless the user opts out. Adapt the **values** to the project; the **keys** are the convention.
+The skill should propose this set on every integration unless the user opts out. Adapt the **values** to the project; the **keys** are the convention. Exception: rows marked *fallback only* are **not** default proposals — offer them only when the fleet runs Amply SDK < 0.6.1 or the count is derived state (see "Counter properties" below).
 
 | Key | Type | Source | Example |
 |---|---|---|---|
@@ -63,7 +63,7 @@ The skill should propose this set on every integration unless the user opts out.
 | `subscription_plan` | String | Same | `'monthly_premium'`, `'yearly_pro'` |
 | `trial_ends_at` | DateTime (native) / number (RN, epoch) | RevenueCat `CustomerInfo.entitlements.trialPeriodEndDate` | `1718640000` |
 | `last_paywall_view_at` | DateTime / number | App-side, stamped on paywall view | |
-| `total_purchases` | Number | App-side counter; bump on each `Purchase` event | `3` |
+| `total_purchases` | Number | Counter property — fallback only; on Amply SDK 0.6.1+ target the `Purchase` event count directly (see "Counter properties" below) | `3` |
 | `paywall_view_count` | Number | Counter property — fallback only; on Amply SDK 0.6.1+ target the `PaywallShown` event count directly (see "Counter properties" below) | `7` |
 | `onboarding_completed` | Boolean | App-side, set when the last onboarding step finishes | `true` |
 | `onboarding_completed_at` | DateTime / number | Same | |
@@ -77,7 +77,7 @@ The skill should propose this set on every integration unless the user opts out.
 
 ## Counter properties — the fallback for "fire after Nth event"
 
-For apps running **Amply SDK 0.6.1+**, "user fired event X N times" **is a built-in targeting condition** — campaign audience rules target events directly (occurrence counts, has-ever / has-never, first/last-occurrence dates, event property filters; up to 20 event conditions per campaign). Prefer that over counters — no app code, no persistence, no write-ordering concerns. See `who-when-what-audit.md` § Who for the full operator vocabulary.
+For apps running **Amply SDK 0.6.1+**, "user fired event X N times" **is a built-in targeting condition** — campaign audience rules target events directly (`how many times` occurrence counts, `has happened` (ever) / `has never happened`, `first occurrence` / `last occurrence` dates, event property filters; up to 20 event conditions per campaign). Prefer that over counters — no app code, no persistence, no write-ordering concerns. See `who-when-what-audit.md` § Who for the full operator vocabulary.
 
 Counter Custom Properties remain the right tool in two cases:
 

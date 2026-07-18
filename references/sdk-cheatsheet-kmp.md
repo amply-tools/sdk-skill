@@ -161,6 +161,7 @@ suspend fun trackGatedSave(screen: String): GateDecision =
 fun applyEntitlements(entitlements: Entitlements) {
     AmplyHolder.instance.setCustomProperties(mapOf(
         "subscription_status" to entitlements.status,
+        // Counter — fallback only for fleets below Amply SDK 0.6.1; on 0.6.1+ target the Purchase event count directly.
         "total_purchases" to entitlements.totalPurchases,
         "notifications_enabled" to entitlements.pushEnabled,
     ))

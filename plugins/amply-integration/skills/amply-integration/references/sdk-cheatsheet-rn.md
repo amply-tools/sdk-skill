@@ -100,6 +100,7 @@ Limits per the RN SDK JSDoc:
 ```ts
 Amply.setCustomProperties({
   subscription_status: 'trial',
+  // Counter — fallback only for fleets below Amply SDK 0.6.1; on 0.6.1+ target the Purchase event count directly.
   total_purchases: 0,
   notifications_enabled: true,
 });

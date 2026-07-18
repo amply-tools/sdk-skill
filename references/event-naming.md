@@ -44,7 +44,7 @@ The audit row gets BOTH the resulting Decision (`forward-translated` / `skip-sys
 Amply's recommended convention:
 
 - **Event names: PascalCase** — `PaywallShown`, `OnboardingCompleted`, `TrialStarted`, `Purchase`.
-- **Property keys: snake_case** — `screen`, `source`, `subscription_status`, `total_purchases`.
+- **Property keys: snake_case** — `screen`, `source`, `subscription_status`, `streak_length`.
 
 Most apps use a different convention internally — `paywall_shown`, `paywallShown`, or all-caps `PAYWALL_SHOWN`.
 

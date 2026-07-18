@@ -119,6 +119,7 @@ Allowed value types: `String`, `Int`, `Long`, `Float`, `Double`, `Boolean`, `Dat
 ```kotlin
 amply.setCustomProperties(mapOf(
     "subscription_status" to "trial",
+    // Counter — fallback only for fleets below Amply SDK 0.6.1; on 0.6.1+ target the Purchase event count directly.
     "total_purchases" to 0,
     "notifications_enabled" to true,
 ))

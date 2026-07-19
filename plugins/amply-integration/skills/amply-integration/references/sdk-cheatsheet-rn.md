@@ -14,15 +14,7 @@ yarn add @amplytools/react-native-amply-sdk@^0.6.1
 
 **Pin at least `0.6.1`**: event-history audience targeting (Amply SDK 0.6.1+) only matches apps running 0.6.1 or later — older builds silently don't match those campaigns. The npm package pins the matching native SDK (iOS Pod / Android Gradle) via its podspec / `build.gradle`.
 
-**Config plugin in `app.json` — only for Expo Prebuild Workflow or Expo Managed projects.** Identify your RN flavour via `references/platform-detection.md` §2 *before* touching `app.json`.
-
-```json
-{
-  "expo": {
-    "plugins": ["@amplytools/react-native-amply-sdk"]
-  }
-}
-```
+**No `app.json` plugin entry is needed — in any flavour.** Since SDK 0.2.12 the Amply Expo config plugin is a no-op pass-through: React Native autolinking (via the package's `react-native.config.js`) registers the native module on both platforms, including during `expo prebuild`. If the project already lists `"@amplytools/react-native-amply-sdk"` under `expo.plugins` (older integrations did), it is harmless — the SDK just prints a removal notice during `prebuild` — remove the entry next time you touch `app.json`. You still must identify the RN flavour via `references/platform-detection.md` §2 first: it decides whether `expo prebuild` is safe to run at all.
 
 **Build command — always read the project's `package.json` scripts first.** What follows is the *canonical fallback* per flavour. If the project already has `scripts.ios` / `scripts.android` / `scripts.dev:ios` / a `fastlane` lane / `eas build` setup, **prefer that** even if it doesn't match the canonical command (legacy scripts are common and not always worth rewriting during integration).
 
@@ -30,10 +22,10 @@ yarn add @amplytools/react-native-amply-sdk@^0.6.1
 
 | Flavour | After `yarn add @amplytools/react-native-amply-sdk` | Canonical fallback build |
 |---|---|---|
-| **A. Pure Bare RN** | Don't touch `app.json`. | `npx react-native run-ios` / `run-android` |
-| **B. Bare RN + Expo Modules** | **Do NOT add the plugin to `app.json`** — it would be a no-op (no `prebuild` ever runs in this flavour). **Do NOT run `expo prebuild`** — it would wipe the hand-managed `ios/` and `android/` folders. **Do NOT manually `cd ios && pod install` as a first step** — the run script does it. | `npx expo run:ios` / `run:android` |
-| **C. Expo Prebuild Workflow** | Add the plugin entry, then `npx expo prebuild --clean` (regenerates `ios/`/`android/`). | `npx expo run:ios` / `run:android` after `prebuild` |
-| **D. Expo Managed** | Add the plugin entry. | `eas build -p ios` / `-p android` |
+| **A. Pure Bare RN** | Nothing else — autolinking registers the module. Don't touch `app.json`. | `npx react-native run-ios` / `run-android` |
+| **B. Bare RN + Expo Modules** | Nothing else — autolinking registers the module. **Do NOT run `expo prebuild`** — it would wipe the hand-managed `ios/` and `android/` folders. **Do NOT manually `cd ios && pod install` as a first step** — the run script does it. | `npx expo run:ios` / `run:android` |
+| **C. Expo Prebuild Workflow** | No plugin entry needed. `npx expo prebuild --clean` (regenerates `ios/`/`android/`; autolinking registers the module there). | `npx expo run:ios` / `run:android` after `prebuild` |
+| **D. Expo Managed** | No plugin entry needed. | `eas build -p ios` / `-p android` (prebuild + autolinking run in EAS cloud) |
 
 It is common for a Flavour-B project to have **mixed** scripts — e.g. `yarn ios` calls `react-native run-ios` (legacy from initial RN init) while `yarn android` calls `expo run:android` (added later). Both work for Flavour B; don't normalise them as part of the integration. Use whichever the project ships.
 

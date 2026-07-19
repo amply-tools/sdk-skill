@@ -2,6 +2,11 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] — 2026-07-19
+
+### Fixed
+- **Expo config plugin guidance corrected** (`references/sdk-cheatsheet-rn.md`, `SKILL.md` flavour instructions + Common Mistakes): the skill still instructed Expo Prebuild / Expo Managed integrations to add `"@amplytools/react-native-amply-sdk"` to `app.json` → `expo.plugins`, while the plugin has been a documented no-op since SDK 0.2.12 — React Native autolinking (`react-native.config.js`) registers the native module in every flavour, including during `expo prebuild`. Integrators following the skill then saw the SDK's own "you can safely remove this plugin" notice on every prebuild. The skill now says: no plugin entry in any flavour; an existing entry is harmless — remove it when next touching `app.json`; `prebuild` itself remains mandatory for Flavour C (it regenerates the native projects where autolinking runs).
+
 ## [0.10.0] — 2026-07-18
 
 ### Added

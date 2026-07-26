@@ -218,8 +218,6 @@ Same types as Android/Kotlin: `GateDecision.Proceed(reason: ProceedReason)` / `G
 
 `CampaignPresenter` and `CampaignResolution`/`CampaignResult` live in the platform layer — wire them from `androidMain`/`iosMain`.
 
-> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
-
 ## Requirements
 
 - Android `minSdk` 21+, iOS deployment target 14.1+.

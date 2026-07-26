@@ -291,8 +291,6 @@ if case .proceed = decision {
 }
 ```
 
-> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed:, onCancel:)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
-
 ## Requirements
 
 - iOS 14.1+ (KMP samples). Bumping deployment target to 14.1 is the safe minimum.

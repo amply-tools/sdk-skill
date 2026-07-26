@@ -258,7 +258,7 @@ For a **gate-able moment** (the app must wait on a campaign action before procee
 - **iOS Swift** — `let decision = await amply.trackGated(event: "...", properties: [...])`. Match with `if case .proceed = decision` / `decision is GateDecision.Cancelled`. Register at startup: `amply.registerGate(baseUrl: ..., presenter: presenter, onAbort: .cancel, timeoutMs: 60_000)`.
 - **Android/KMP Kotlin** — `val decision = amply.trackGated(event = "...", properties = mapOf(...))` (suspend). Check `decision is GateDecision.Proceed` / `GateDecision.Cancelled`. Register at startup: `amply.registerGate(baseUrl, presenter, onAbort = AbortPolicy.Cancel, timeoutMs = 60_000)`.
 
-**SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` (callback continuation) and `registerCampaignPresenter` are **removed**. Use `trackGated` + `registerGate` exclusively. See per-platform signatures in `references/sdk-cheatsheet-*.md`.
+Per-platform signatures are in `references/sdk-cheatsheet-*.md`. Use only the methods listed there — anything else you recall is a mis-recollection.
 
 Initialise Amply in the right place using **the platform-correct API** (see SDK cheatsheets):
 

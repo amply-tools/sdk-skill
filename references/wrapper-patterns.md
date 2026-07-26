@@ -201,8 +201,6 @@ Live the wrapper in `commonMain` and let it reach `AmplyHolder.instance` (see `s
 
 Use `trackGated` (instead of `track`) when the app must **pause and wait** for a campaign action to complete before proceeding — e.g. a rewarded ad before Save, a campaign offer before Export.
 
-> **SDK 0.5.0 note:** `trackEvent(..., onProceed, onCancel)` callback continuation and `registerCampaignPresenter` are **removed**. The patterns below replace them entirely.
-
 Register the presenter once at startup (before the first gate-able event fires):
 
 **TypeScript (RN/Expo)**

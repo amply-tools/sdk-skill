@@ -163,7 +163,8 @@ Notably, **`@custom` is not in the published RN union** even though it exists in
 | Method | Notes |
 |---|---|
 | `Amply.initialize(config)` | Async. `{ appId, apiKeyPublic, debug?, logLevel? }`. |
-| `Amply.track({ name, properties? })` | **Object payload**. |
+| `Amply.track({ name, properties? })` | **Object payload.** The canonical form — write this in new code. |
+| `Amply.trackEvent(event, properties?)` | Positional alias of `track`; identical behaviour, mirrors the shape of `trackGated`. Both ship and neither is deprecated — if existing code already calls it, leave it alone rather than rewriting to `track`. |
 | `Amply.setUserId(id \| null)` | |
 | `Amply.setCustomProperty(key, value)` / `setCustomProperties(map)` | Values: `string \| number \| boolean`. |
 | `Amply.getCustomProperty(key)` | Async. |
@@ -208,8 +209,6 @@ if (decision.outcome === 'proceed') {
 }
 ```
 
-> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
-
 ## Requirements
 
 - React Native ≥ 0.79, **New Architecture enabled** (Bridgeless / Fabric / TurboModules).
@@ -219,8 +218,10 @@ if (decision.outcome === 'proceed') {
 ## Common mistakes (rewrite on sight)
 
 ```ts
-// ❌ Positional track arguments — not supported.
+// ❌ Positional arguments on `track` — that shape belongs to `trackEvent`, not `track`.
 Amply.track('PaywallShown', { screen: 'home' });
+//   Use either: Amply.track({ name: 'PaywallShown', properties: { screen: 'home' } })
+//   or:         Amply.trackEvent('PaywallShown', { screen: 'home' })
 
 // ❌ DateTime values on RN.
 Amply.setCustomProperty('trial_ends_at', new Date()); // RN does not accept Date here.

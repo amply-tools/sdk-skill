@@ -2,6 +2,14 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] — 2026-07-26
+
+### Fixed
+- **`track` vs `trackEvent` on React Native no longer reads as a contradiction** (`references/sdk-cheatsheet-rn.md`). The RN API table listed only `Amply.track({ name, properties? })`, while a note a few lines below announced that `trackEvent` had been "removed" — so an agent reading the cheatsheet would conclude `Amply.trackEvent` does not exist, then find it exported by the installed package and either distrust the cheatsheet or rewrite working call sites. The table now carries both: `track` (object payload) as the canonical form to write in new code, and `trackEvent(event, properties?)` as its positional alias — same behaviour, same shape as `trackGated` — with an explicit "leave existing call sites alone". The Common Mistakes entry about positional arguments now names which of the two accepts them instead of calling the shape unsupported.
+
+### Removed
+- **Pre-0.5.0 migration notes dropped** from `SKILL.md`, all four platform cheatsheets, and `references/wrapper-patterns.md`. They described an SDK entry point that no released integration path ever exposed, so they only ever added noise for readers who could not have used it — and were the source of the `trackEvent` contradiction above. The gate API (`trackGated` + `registerGate`) is documented on its own terms; `SKILL.md` now closes that section by pointing at the per-platform cheatsheets as the only authority for method names.
+
 ## [0.10.1] — 2026-07-19
 
 ### Fixed
@@ -66,7 +74,7 @@ All notable changes to `amply-integration` are documented here. Format follows [
 ## [0.5.0] — 2026-05-29
 
 ### Added
-- Documented the SDK 0.5.0 gate API (`trackGated` + `registerGate`) across `SKILL.md` and the platform cheatsheets; the removed callback-continuation API (`trackEvent(..., onProceed, onCancel)` / `registerCampaignPresenter`) is called out as a breaking change.
+- Documented the SDK 0.5.0 gate API (`trackGated` + `registerGate`) across `SKILL.md` and the platform cheatsheets — awaiting a campaign action's outcome before the app proceeds.
 
 ## [0.3.0] — 2026-05-28
 

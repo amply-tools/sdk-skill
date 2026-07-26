@@ -225,8 +225,6 @@ viewModelScope.launch {
 }
 ```
 
-> **SDK 0.5.0 breaking change:** `trackEvent(..., onProceed, onCancel)` and `registerCampaignPresenter` are removed. Use `trackGated` + `registerGate`.
-
 ## Requirements
 
 - Android `minSdk` 24+ (RN target) / 21+ (KMP library).

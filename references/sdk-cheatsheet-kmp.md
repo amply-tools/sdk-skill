@@ -19,7 +19,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation("tools.amply:sdk-kmp:0.6.1")
+                implementation("tools.amply:sdk-kmp:0.9.0")
             }
         }
     }
@@ -28,7 +28,7 @@ kotlin {
 
 For iOS framework consumers (XcodeGen / SwiftUI app shell), the published XCFramework wraps the same library — see `sdk-cheatsheet-ios.md`.
 
-**Pin at least `0.6.1`**: event-history audience targeting (Amply SDK 0.6.1+) only matches apps running 0.6.1 or later — older builds silently don't match those campaigns.
+**Pin `0.9.0` or later.** Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting still needs 0.6.1+, which 0.9.0 satisfies.)
 
 ## Upgrading the SDK version
 
@@ -198,19 +198,34 @@ iosMain/
       PlatformInit.kt         # actual
 ```
 
+## Withdrawing a listener (SDK 0.9.0+)
+
+Every registration returns a `ListenerToken`, and withdrawal takes that token rather than the
+listener object. Keep the token wherever you keep the listener.
+
+Because registration happens in platform startup code, so does withdrawal — see
+`sdk-cheatsheet-android.md` and `sdk-cheatsheet-ios.md` for the per-platform shape. In shared code
+the only thing to carry is the token itself.
+
+A listener left installed after its owner is gone keeps that owner reachable for the life of the
+process. A gate left registered parks the next gated call on that URL for the whole fail-open
+timeout.
+
 ## Public surface (API table — commonMain)
 
 | Method | Signature | Notes |
 |---|---|---|
 | `track` | `suspend fun track(event: String, properties: Map<String, Any> = emptyMap())` | |
 | `trackGated` | `suspend fun trackGated(event: String, properties: Map<String, Any> = emptyMap()): GateDecision` | Suspends until campaign resolves. |
-| `registerGate` | `fun registerGate(baseUrl: String, presenter: CampaignPresenter, onAbort: AbortPolicy = AbortPolicy.Cancel, timeoutMs: Long = 60_000)` | Call from platform startup, not commonMain. |
+| `registerGate` | `fun registerGate(...): ListenerToken` | Call from platform startup, not commonMain. Returns the token that withdraws it. |
+| `unregisterGate` | `fun unregisterGate(token: ListenerToken)` | |
 | `setUserId` | `fun setUserId(userId: String?)` | |
 | `setCustomProperty` | `fun setCustomProperty(key: String, value: Any)` | |
 | `setCustomProperties` | `fun setCustomProperties(properties: Map<String, Any>)` | |
 | `getCustomProperty` | `suspend fun getCustomProperty(key: String): Any?` | |
 | `removeCustomProperty` / `clearCustomProperties` | | |
-| `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener)` | |
+| `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener): ListenerToken` | |
+| `removeDeepLinkListener` | `fun removeDeepLinkListener(token: ListenerToken)` | Takes the **token**, not the listener. |
 
 ## Gate API (SDK 0.5.0+)
 

@@ -2,6 +2,33 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] — 2026-07-30
+
+### Changed
+- **Native listener registration takes a token as of Amply SDK 0.9.0** (`references/sdk-cheatsheet-ios.md`, `-android.md`, `-kmp.md`, `SKILL.md`). Every registration — deeplink, system events, log, gate — now returns a `ListenerToken`, and withdrawal takes that token instead of the listener object. Each native cheatsheet gains a *Withdrawing a listener* section covering who actually has to withdraw (anything shorter-lived than the process), where to do it on iOS (the host's explicit teardown hook, **not** `deinit`, which will not run while the SDK holds the reference), and that reclamation after withdrawal is garbage-collected rather than immediate — so a test must not assert prompt deallocation. `unregisterGate` is new: before it, a gate registered by a host that went away parked the next gated call on that URL for the whole fail-open timeout, with nothing on screen.
+- **Install pins bumped to `0.9.0`** in all four cheatsheets. The native examples do not compile against 0.8.x. The 0.6.1 event-history floor is unchanged and satisfied by 0.9.0.
+
+### Fixed
+- **The React Native pin note no longer undersells 0.9.0** (`references/sdk-cheatsheet-rn.md`). 0.9.0 fixes a use-after-free that crashed the app on every JS bundle reload in development. The note now says so, and says plainly that **the JS API is unchanged** — the fix lives entirely in the native bridge — so an RN integrator has a reason to upgrade and nothing to migrate.
+
+## [0.11.0] — 2026-07-30
+
+### Changed
+- **The Amply MCP is now hosted by Amply, and the skill talks to it over HTTP with OAuth** (`references/amply-mcp.md` rewritten, `SKILL.md` Phase 0). There is nothing to install and no local process: `claude mcp add --transport http amply https://api.amply.tools/mcp`, then the user runs `/mcp` and approves in a browser. The previous local npm server is retired — its endpoint returns 404 and every published version is deprecated, so a skill run that followed the old instructions could not connect at all. The reference now also documents detection ("listed" is not "usable" — an unapproved server answers every call with an authorization error), the tool names, and the errors worth handling.
+- **Phase 1b resolves the Amply application through the admin UI instead of the MCP** (`SKILL.md`, `references/audit-template.md`). The hosted MCP has no provisioning tool of any kind, so `appId`, `apiKeyPublic` and `apiKeySecret` come from the user. The phase now tells them exactly where to get each value, notes that iOS and Android are two applications with two key pairs, and stops rather than wiring placeholder keys — an integration built on placeholders compiles, runs, and silently reports nothing.
+- **Phase 8 authors the first campaign in full rather than from a template** (`SKILL.md`). Campaign templates were a feature of the old server and have no successor, so the phase now calls `campaign_create` directly and points at the server's own targeting reference for the vocabulary.
+
+### Fixed
+- **The skill no longer claims an API key secret can be seen only once** (`SKILL.md` Phase 1b). It stays readable in the admin — the keys tab masks it on screen but the copy button yields the real value. The old warning pushed users to mint a replacement key to "recover" a secret they already had, and because minting leaves the previous key live, each needless mint left an orphan credential behind.
+- **The `CustomPropertyChanged` campaign recipe no longer sends agents to the MCP** (`references/system-events.md`). What makes that trigger useful is its Event Param filters, and `campaign_create` cannot express them — it accepts an event name and type and nothing else. A campaign built over MCP would fire on *every* property change the app reports rather than the one named, which is worse than no campaign. The recipe now says to author it in the admin.
+
+### Removed
+- **Sixteen tool names that no longer exist** were dropped from the skill and are listed once, explicitly, as do-not-call: the authentication set (`amply_login` / `amply_logout` / `amply_status` / `amply_whoami` / `amply_signup`), the provisioning set (`amply_ensure_app`, `amply_create_project`, `amply_list_applications`, `amply_find_application`, `amply_get_application`, `amply_create_application`, `amply_create_api_key`), and the campaign set (`amply_update_campaign`, `amply_describe_targeting`, `amply_set_campaign_state`, `amply_create_campaign_from_template`). Naming them is deliberate: an agent that has seen an older copy of this skill will otherwise keep reaching for them.
+- **The autonomous account-creation path is gone.** The skill previously offered, as its autopilot default, to sign a user up with a generated email and password and log those credentials into the audit file. The tool behind it no longer exists, and the behaviour should not come back in another form.
+
+### Note
+Agent-side provisioning is expected to return once the hosted server grows tools for it; when that ships, Phase 1b goes back to resolving the application without the user leaving their editor. Until then the admin-UI step is the only path that works.
+
 ## [0.10.2] — 2026-07-26
 
 ### Fixed

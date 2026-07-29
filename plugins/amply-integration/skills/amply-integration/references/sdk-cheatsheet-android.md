@@ -10,17 +10,17 @@ In `app/build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("tools.amply:sdk-android:0.6.1")
+    implementation("tools.amply:sdk-android:0.9.0")
 }
 ```
 
 Or `app/build.gradle` (Groovy):
 
 ```groovy
-implementation 'tools.amply:sdk-android:0.6.1'
+implementation 'tools.amply:sdk-android:0.9.0'
 ```
 
-Pin to the latest release — check Maven Central for the current version. **Pin at least `0.6.1`**: event-history audience targeting (Amply SDK 0.6.1+) only matches apps running 0.6.1 or later — older builds silently don't match those campaigns.
+Pin to the latest release — check Maven Central for the current version. **Pin `0.9.0` or later.** Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting still needs 0.6.1+, which 0.9.0 satisfies.)
 
 ## Upgrading the SDK version — bump, refresh, verify, rebuild
 
@@ -147,7 +147,7 @@ interface DeepLinkListener {
 Implement it (anonymous object or class) — **two parameters**, **`Boolean` return**:
 
 ```kotlin
-amply.registerDeepLinkListener(object : DeepLinkListener {
+val deepLinkToken = amply.registerDeepLinkListener(object : DeepLinkListener {
     override fun onDeepLink(url: String, info: Map<String, Any>): Boolean {
         if (url.startsWith("amply://")) {
             navigator.routeAmplyDeeplink(url, info)
@@ -163,10 +163,34 @@ There is **no lambda DSL** overload — `amply.registerDeepLinkListener { ... }`
 ## System events
 
 ```kotlin
-amply.setSystemEventsListener(object : SystemEventsListener {
+val systemEventsToken = amply.setSystemEventsListener(object : SystemEventsListener {
     override fun onSystemEvent(/* ... */) { /* ... */ }
 })
 ```
+
+## Withdrawing a listener (SDK 0.9.0+)
+
+Every registration returns a `ListenerToken`. **Keep it** — it is the only thing that withdraws
+that registration:
+
+```kotlin
+val token = amply.registerDeepLinkListener(myListener)
+// later, when the component that owns myListener goes away:
+amply.removeDeepLinkListener(token)
+```
+
+Withdrawal takes the **token**, never the listener object. Passing a token that is no longer the
+installed one is a no-op — so a component being torn down cannot silence the one that has already
+replaced it.
+
+**Who needs to care.** An `Application`-scoped listener that lives for the whole process never has
+to withdraw. Anything shorter-lived does: an `Activity`, a Compose screen, a feature module. A
+listener left installed after its owner is gone keeps that owner reachable for the life of the
+process, and the SDK keeps calling it.
+
+**Gates too.** `registerGate` returns a token and `unregisterGate(token)` withdraws it. A gate left
+behind by a component that is gone parks the next gated call on that URL for the whole fail-open
+timeout, with nothing on screen.
 
 ## Public surface (API table)
 
@@ -180,10 +204,15 @@ amply.setSystemEventsListener(object : SystemEventsListener {
 | `getCustomProperty` | `suspend fun getCustomProperty(key: String): Any?` | Suspend; returns `null` when key is not set. |
 | `removeCustomProperty` / `clearCustomProperties` | | |
 | `trackGated` | `suspend fun trackGated(event: String, properties: Map<String, Any> = emptyMap()): GateDecision` — suspends until campaign resolves; returns `GateDecision.Proceed(reason)` or `GateDecision.Cancelled`. | Call from a coroutine. |
-| `registerGate` | `fun registerGate(baseUrl: String, presenter: CampaignPresenter, onAbort: AbortPolicy = AbortPolicy.Cancel, timeoutMs: Long = 60_000)` — call once at startup. | |
-| `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener)` | |
-| `setSystemEventsListener` | `fun setSystemEventsListener(listener: SystemEventsListener)` | |
-| `setLogLevel` / `getLogLevel` / `setLogListener` | | |
+| `registerGate` | `fun registerGate(...): ListenerToken` — call once at startup. | Returns the token that withdraws it. |
+| `unregisterGate` | `fun unregisterGate(token: ListenerToken)` | |
+| `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener): ListenerToken` | |
+| `removeDeepLinkListener` | `fun removeDeepLinkListener(token: ListenerToken)` | Takes the **token**, not the listener. |
+| `setSystemEventsListener` | `fun setSystemEventsListener(listener: SystemEventsListener): ListenerToken` | |
+| `clearSystemEventsListener` | `fun clearSystemEventsListener(token: ListenerToken)` | |
+| `setLogListener` | `fun setLogListener(listener: LogListener): ListenerToken` | No longer accepts `null`. |
+| `clearLogListener` | `fun clearLogListener(token: ListenerToken)` | |
+| `setLogLevel` / `getLogLevel` | | |
 
 ## Gate API (SDK 0.5.0+)
 

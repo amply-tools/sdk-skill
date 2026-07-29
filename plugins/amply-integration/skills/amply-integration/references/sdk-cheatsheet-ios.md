@@ -9,7 +9,7 @@ The iOS SDK is constructed instance-style — `Amply(config:)` — and the host 
 In Xcode → File → Add Packages → enter the public repo URL. In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/amply-tools/amply-sdk-ios.git", from: "0.6.1"),
+.package(url: "https://github.com/amply-tools/amply-sdk-ios.git", from: "0.9.0"),
 ```
 
 Then add `AmplySDK` to the target's `dependencies`.
@@ -17,12 +17,12 @@ Then add `AmplySDK` to the target's `dependencies`.
 ## Install — CocoaPods
 
 ```ruby
-pod 'AmplySDK', '~> 0.6.1'
+pod 'AmplySDK', '~> 0.9.0'
 ```
 
 Then `pod install`.
 
-**Pin at least `0.6.1`** (both managers): event-history audience targeting (Amply SDK 0.6.1+) only matches apps running 0.6.1 or later — older builds silently don't match those campaigns.
+**Pin `0.9.0` or later** (both managers). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting still needs 0.6.1+, which 0.9.0 satisfies.)
 
 ## Upgrading the SDK version — resolve, verify, rebuild, re-ship
 
@@ -221,7 +221,7 @@ final class AmplyDeeplinkRouter: NSObject, DeepLinkListener {
 
 // Wire up — keep a strong reference!
 let router = AmplyDeeplinkRouter(navigator: appNavigator)
-amply.registerDeepLinkListener(listener: router)
+let deepLinkToken = amply.registerDeepLinkListener(listener: router)
 self.deeplinkRouter = router  // strong ref required
 ```
 
@@ -231,8 +231,38 @@ self.deeplinkRouter = router  // strong ref required
 final class SystemListener: SystemEventsListener {
     func onSystemEvent(/* SDK-defined params */) { /* ... */ }
 }
-amply.setSystemEventsListener(listener: systemListener)
+let systemEventsToken = amply.setSystemEventsListener(listener: systemListener)
 ```
+
+## Withdrawing a listener (SDK 0.9.0+)
+
+Every registration returns a `ListenerToken`. **Keep it** — it is the only thing that withdraws
+that registration:
+
+```swift
+let token = amply.registerDeepLinkListener(listener: router)
+// later, when whatever owns `router` goes away:
+amply.removeDeepLinkListener(token: token)
+```
+
+Withdrawal takes the **token**, never the listener object. Passing a token that is no longer the
+installed one is a no-op — so a screen being torn down cannot silence the one that replaced it.
+
+**Who needs to care.** An `AppDelegate`-scoped listener that lives for the whole process never has
+to withdraw. Anything shorter-lived does. A listener left installed after its owner is gone keeps
+that owner reachable for the life of the process, and the SDK keeps calling it.
+
+**Withdraw where teardown actually runs.** For an object the SDK holds, `deinit` is the wrong place
+— it will not run while the SDK still has the reference. Withdraw from the explicit teardown hook
+your host gives you (a React Native TurboModule uses `-invalidate`).
+
+**Release is not immediate.** After you withdraw, the SDK drops its reference, but the object is
+reclaimed on a later garbage-collection cycle rather than at that instant (~10 s observed). Do not
+write a test that asserts prompt deallocation.
+
+**Gates too.** `registerGate` returns a token and `unregisterGate(token:)` withdraws it. A gate left
+behind by a screen that is gone parks the next gated call on that URL for the whole fail-open
+timeout, with nothing on screen.
 
 ## Public surface (API table)
 
@@ -247,9 +277,14 @@ amply.setSystemEventsListener(listener: systemListener)
 | `removeCustomProperty` | `func removeCustomProperty(key: String)` |
 | `clearCustomProperties` | `func clearCustomProperties()` |
 | `trackGated` | `func trackGated(event: String, properties: [String: Any]) async -> GateDecision` — waits for campaign resolution; returns `.proceed(reason:)` or `.cancelled`. |
-| `registerGate` | `func registerGate(baseUrl: String, presenter: CampaignPresenter, onAbort: AbortPolicy, timeoutMs: Int64)` — call once at startup. |
-| `registerDeepLinkListener` | `func registerDeepLinkListener(listener: DeepLinkListener)` |
-| `setSystemEventsListener` | `func setSystemEventsListener(listener: SystemEventsListener)` |
+| `registerGate` | `func registerGate(baseUrl: String, presenter: CampaignPresenter, onAbort: AbortPolicy, timeoutMs: Int64) -> ListenerToken` — call once at startup. |
+| `unregisterGate` | `func unregisterGate(token: ListenerToken)` |
+| `registerDeepLinkListener` | `func registerDeepLinkListener(listener: DeepLinkListener) -> ListenerToken` |
+| `removeDeepLinkListener` | `func removeDeepLinkListener(token: ListenerToken)` — takes the **token**, not the listener. |
+| `setSystemEventsListener` | `func setSystemEventsListener(listener: SystemEventsListener) -> ListenerToken` |
+| `clearSystemEventsListener` | `func clearSystemEventsListener(token: ListenerToken)` |
+| `setLogListener` | `func setLogListener(listener: LogListener) -> ListenerToken` — no longer accepts `nil`. |
+| `clearLogListener` | `func clearLogListener(token: ListenerToken)` |
 | `setLogLevel` | `func setLogLevel(level: String)` |
 
 ## Gate API (SDK 0.5.0+)

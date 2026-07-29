@@ -59,8 +59,9 @@ The skill is a 9-phase state machine. It threads a small set of variables betwee
 | `mode` | `autopilot` \| `interactive` | unset | § Mode — resolved once, before Phase 0 |
 | `platform` | `RN` \| `iOS` \| `Android` \| `KMP` | unset | Phase 1 detection |
 | `rnFlavour` | `BareA` \| `BareExpoB` \| `PrebuildC` \| `ManagedD` | unset | Phase 1 (RN only) |
-| `appId` | UUID | unset | Phase 1b (`amply_ensure_app` or manual) |
-| `envBlock` | block of `appId` / `apiKeyPublic` / `apiKeySecret` | unset | Phase 1b |
+| `amplyApps` | one entry per shipped platform, each `{ platform, appId, apiKeyPublic, apiKeySecret? }` | unset | Phase 1b (from the Amply admin) |
+| `envBlock` | the env entries assembled from `amplyApps` — two sets when the project ships both platforms | unset | Phase 1b |
+| `credentialsBlocked` | `true` when Phase 1b could not obtain real values | `false` | Phase 1b (autopilot) |
 | `wrapperStrategy` | `extend` \| `new` | `extend` | Phase 2 analytics audit |
 | `phasesCompleted` | set of phase numbers | `{}` | appended at the end of each phase |
 | `checkpointsPassed` | set | `{}` | each verification gate (6a scheme, 6b listener, Phase 7 build) |
@@ -91,9 +92,9 @@ When something fails, **fix it yourself first** — read the error, apply the kn
 Before anything else, check two MCPs:
 
 1. **Context7** — mirrors live `docs.amply.tools`; authoritative for SDK reference questions when present. See `references/context7-mcp.md` for detection + free install command + autonomous-mode fallback.
-2. **Amply MCP** (`@amplytools/amply-mcp`) — direct backend automation: signup, login, register applications, fetch `apiKeyPublic` + `apiKeySecret`. When connected, the skill can complete a full integration without the user ever opening the Amply admin UI. See `references/amply-mcp.md` for detection (`claude mcp list | grep -i amply`), install (`claude mcp add amply -- npx -y @amplytools/amply-mcp`), the campaign + project/application + auth tools available, and the recommended one-shot `amply_ensure_app`. For agents that want to set up campaigns programmatically, authoring tools (`amply_create_campaign`, `amply_describe_targeting`) are also available — see `references/amply-mcp.md`. Same autonomous-mode rule as Context7 — don't install MCPs without explicit consent.
+2. **Amply MCP** — hosted by Amply, so there is nothing to install: `claude mcp add --transport http amply https://api.amply.tools/mcp`, then the user runs `/mcp` and approves in the browser. It covers campaigns, analytics and price management. It does **not** cover provisioning — projects, applications and API keys are admin-UI work (Phase 1b). See `references/amply-mcp.md` for detection, the tool list, the payload traps in `campaign_create`, and the tools that no longer exist. Same autonomous-mode rule as Context7 — never add an MCP server without explicit consent.
 
-**Tool boundary (which source for what):** use **Context7 for SDK reference** — code snippets, API signatures, version behaviour — and *never* to look up a user's account values. Use the **Amply MCP for account / backend automation** — API keys, `appId`, projects, campaigns — and *never* as a source of SDK reference. Crossing the boundary means either fetching stale code from the backend or burning a backend round-trip on something that lives in the public docs.
+**Tool boundary (which source for what):** use **Context7 for SDK reference** — code snippets, API signatures, version behaviour — and *never* to look up a user's account values. Use the **Amply MCP for account / backend automation** — reading projects, authoring campaigns, analytics — and *never* as a source of SDK reference. It is not a source of `appId` or API keys either; those come from the user (Phase 1b). Crossing the boundary means either fetching stale code from the backend or burning a backend round-trip on something that lives in the public docs.
 
 ### Phase 0.5 — Goal sanity check
 
@@ -151,30 +152,28 @@ Identify the primary platform, package manager, and navigation library. See `ref
 
 After Phase 1 has detected `platform`, `bundleId`, and a project name, resolve the Amply application **once**, here, before any wrapper or key work in later phases.
 
-If the Amply MCP (Phase 0) is connected:
+**This step goes through the Amply admin UI. The MCP cannot do it** — the hosted server has no tool to create a project, register an application, or produce API keys. Do not look for one, and do not offer the user an "automatic" option that does not exist.
 
-0. **Check auth state first.** Call `amply_status` (or `amply_whoami`). If `authenticated: false`, the autopilot default is to invoke `amply_signup({ email: "<bundleId>-<YYYY-MM-DD>@<project-domain>", password: <generated>, name: "<integrator-name>", organization: "<project-name>" })` and log the credentials in the audit so the team can take ownership of the org. If `authenticated: true` but the user is a stranger to the project (e.g. you're integrating into a team app and the MCP is logged in as a personal account), `interactive`: ask which org to use; `autopilot`: proceed under the existing user and log it.
-1. Call `amply_ensure_app({ bundleId, platform, name, projectName?, mintNewKey: false })`.
-2. Branch on `result.status`:
-   - **`created`** — the app didn't exist; backend returned the first key inline. Carry the returned `envBlock` into Phase 5.
-   - **`reused`** — the app already exists; no key was returned (the list endpoint doesn't expose secrets). Consult mode:
-     - `interactive`: ask the human — "Existing Amply app found. (1) Mint a new key now, (2) proceed with placeholder values for you to paste from the Amply admin."
-     - `autopilot`: re-invoke `amply_ensure_app({ ...same, mintNewKey: true })`. Log "auto-minted new key for reused app" in the audit. Carry the result.
-   - **`reused_new_key`** — accept and carry to Phase 5.
-   - **`conflict_cross_project`** — STOP. The same `bundleId+platform` is registered in a different project than the one resolved. Surface to the user:
-     - `interactive`: ask which project to use; rerun with the correct `projectName`.
-     - `autopilot`: fail loudly with the project info from the result and a hint to rerun with the right `projectName` or `allowDuplicateAcrossProjects: true`.
+**Which values you need depends on the platform.** `appId` and `apiKeyPublic` always. `apiKeySecret` **additionally on native iOS, Android and KMP**, where `AmplyConfig` requires it — but **not on React Native / Expo**, where it is optional and unused (Phase 5). Do not send an RN-only integration hunting for a secret it will never pass.
 
-If the MCP is not connected — the manual-paste path. **The skill's manual path matches the MCP path step-for-step; users without the MCP still need account → project → application → key**:
+Where each comes from:
 
-1. **Sign up** at https://app.amply.tools/signup (or log in). Note: organization is created at the same time; the email is the org owner.
-2. **Create a project.** Free orgs are limited to a small number; reuse where possible.
-3. **Register the application** under the project. Required: `bundleId` (must match `PRODUCT_BUNDLE_IDENTIFIER` exactly) + `platform` (`iOS`/`Android`). The admin returns an `appId` (UUID, **not** the bundleId) plus the first API key inline.
-4. **⚠ `apiKeySecret` is shown ONCE at creation.** Copy it to a secure store immediately — there is no way to retrieve it later. If it's lost, mint a new key (orphans the previous one).
+1. **Sign up or log in** at https://app.amply.tools — the organization is created with the account, and that email owns it.
+2. **Create a project**, or pick an existing one. Plans cap how many projects an organization may have, so reuse where possible.
+3. **Register the application** under the project. Required: `bundleId` — it must match `PRODUCT_BUNDLE_IDENTIFIER` exactly — and `platform` (`iOS` / `Android`). The admin returns an `appId` (a UUID, **not** the bundleId) plus the first API key.
+4. **iOS and Android are two separate applications with two separate key pairs.** A React Native or Expo integration that ships both needs both registered, and Phase 5 needs both key pairs.
 
-Carry all three values (`appId`, `apiKeyPublic`, `apiKeySecret`) into Phase 5 as if the MCP had returned them. Note in the audit that the manual path was used and the team needs to revoke any orphan keys later.
+The `apiKeySecret` stays readable in the admin — the application's API-keys tab masks it on screen but the copy button yields the real value. **Do not tell the user it is shown only once, and do not have them mint a new key just to recover it.** Minting a new key leaves the previous one live, so a needless mint is an orphan credential the team has to clean up.
 
-The resolved `envBlock` (or the three manually-pasted values) is the only output Phase 5 needs to consume. Phase 5 no longer discovers keys.
+Record one `amplyApps` entry per shipped platform and carry them into Phase 5. Also note the **project name and application name** for each, and whether it was created now or reused: the MCP cannot list applications or resolve an `appId` back to a name, so if this is not written down here, a later run has no way to tell an existing application from a missing one — and will offer to register a duplicate.
+
+**In `interactive` mode**, ask for the three values and wait — this is the one place the run genuinely cannot proceed on a default.
+
+**In `autopilot` mode** the Mode contract forbids the question, and no default can invent a real key. Do not halt: the wrapper, the deeplink wiring and the audit are all still worth producing. Instead:
+
+* Write the env entries with values that are **obviously unfilled** — `AMPLY_APP_ID=<REQUIRED: see amply-audit.md § Blocked>` — never a plausible-looking fake. A fake that parses lets the app initialize against nothing and report into the void; a value that clearly isn't a UUID makes the SDK fail loudly at `initialize` on the first run.
+* Record this as the run's **single blocking item, at the top of the audit**, with the three values named and where to get them. Phase 7's verification cannot pass without them, so say that too rather than reporting a green finish.
+* Do **not** attempt to create an Amply account, and never generate a password or write credentials into the audit or the repository.
 
 ### Phase 2 — Analytics audit
 
@@ -260,6 +259,8 @@ For a **gate-able moment** (the app must wait on a campaign action before procee
 
 Per-platform signatures are in `references/sdk-cheatsheet-*.md`. Use only the methods listed there — anything else you recall is a mis-recollection.
 
+**On native platforms (Amply SDK 0.9.0+), every registration returns a `ListenerToken` and withdrawal takes that token, not the listener object.** Keep the token wherever you keep the listener; a listener left installed after its owner is gone keeps that owner reachable for the life of the process. The RN JS API is unaffected. See *Withdrawing a listener* in each native cheatsheet.
+
 Initialise Amply in the right place using **the platform-correct API** (see SDK cheatsheets):
 
 - RN/Expo: `await Amply.initialize({ appId, apiKeyPublic, debug? })` (static-style module). RN does not require `apiKeySecret`.
@@ -268,7 +269,9 @@ Initialise Amply in the right place using **the platform-correct API** (see SDK 
 
 Pull keys from env / build config. **Refuse** to write keys inline — even if the project's own precedent hard-codes other vendors' keys (RevenueCat / Amplitude / etc.) inline. For projects with no existing env-loading pipeline, do one of: (a) suggest adding `react-native-config` / `EXPO_PUBLIC_*` / `BuildConfig` field, and write the Amply call against it with a clear TODO at the call-site; (b) document the choice prominently in the audit and let the user wire env loading on their own next pass. Never silently inline an Amply key just because the project does it elsewhere — `apiKeySecret` in particular must be treated as a real secret.
 
-**Source of the keys:** by the time Phase 5 runs, Phase 1b has already produced an `envBlock` via `amply_ensure_app` (or determined that the MCP isn't connected). Use the `envBlock` as-is. If Phase 1b couldn't run (no MCP), prompt the user for `appId` / `apiKeyPublic` / `apiKeySecret` and tell them where to find them in the Amply admin panel.
+**Source of the keys:** by the time Phase 5 runs, Phase 1b has already collected the `amplyApps` entries from the Amply admin. Use them as-is — the right entry for the platform being wired, and the secret only where the platform requires it. Never re-derive or guess them here, and never commit them: they belong in the project's ignored env file.
+
+If `credentialsBlocked` is `true` (autopilot could not ask), still generate the initialization code — it is correct and reviewable — but leave the env entries at their `<REQUIRED: …>` markers, and do not report Phase 5 as verified. The code is right; the credentials are missing, and those are different claims.
 
 For env-loading library choice when the project has none: **this is a multi-option decision — see Mode.** In `autopilot`, default to (a) suggesting the platform-idiomatic config lib (`react-native-config` / `EXPO_PUBLIC_*` / `BuildConfig` field) and writing the Amply call against it with a TODO at the call-site.
 
@@ -310,7 +313,9 @@ Run the build **yourself** — per the *Build & verify yourself* contract above,
 - **Expo Managed (Flavour D)** — no plugin entry needed either; build via `eas build -p ios` / `-p android` (prebuild + autolinking run in EAS cloud).
 - **Native iOS (Swift, no RN)** — `pod install` (CocoaPods) or `xcodebuild -resolvePackageDependencies` (SPM). Verify the resolved version actually landed: CocoaPods → `AmplySDK` at the pinned version in `Podfile.lock`; SPM → both `Package.resolved` *and* the `SourcePackages/checkouts/amply-sdk-ios` tag (a stale binary-target cache keeps the old `.xcframework` even when the pin looks right). For a version *bump*, follow the cheatsheet's "Upgrading the SDK version" and the cross-platform note below.
 - **Native Android (Kotlin, no RN)** — Gradle sync; verify the *resolved* version with `./gradlew :app:dependencyInsight --dependency tools.amply:sdk-android` (not just the declared literal — a force/BOM can override it). For a version *bump*, see the cheatsheet's "Upgrading the SDK version" and the cross-platform note below.
-- **All platforms** — full build; verify the Amply module logs `[Amply.Sdk]` lines at debug log level. Confirm a test event lands in the Amply admin panel.
+- **All platforms** — full build; verify the Amply module logs `[Amply.Sdk]` lines at debug log level. Then confirm a test event lands in the Amply admin panel.
+
+**Two checks, and only one of them is yours.** The `[Amply.Sdk]` log lines you can read yourself — do that, and treat their absence as a failure. Whether the event actually *arrived* is visible only in the admin panel, and no MCP tool exposes raw events or session payloads, so you cannot check it: `statistics_active_users` reports daily totals, not "did my test event land". Print the steps, ask the human to look, and **do not record Phase 7 as passed until they say it arrived.** Reporting a green finish because the build compiled is how an integration ships that reports nothing — the exact failure this phase exists to catch.
 
 **Version bumps (any platform).** The per-flavour checks above confirm the SDK is *present*; a **version change** has its own failure mode and is **not** done when the manifest pin is edited. On every platform a dependency cache — SwiftPM `SourcePackages`, CocoaPods, Gradle `~/.gradle/caches`, npm `node_modules` + Metro — can keep serving the **old** binary while the pin *looks* correct, and for a shipped app a pin edit that's never rebuilt + re-released changes nothing users run. So after any bump: **(1)** force a real re-resolve / re-fetch — don't trust an incremental IDE sync or a human "Resolve Package Versions" click; **(2)** verify the *resolved* version at both the manifest **and** the fetched / native layer; **(3)** rebuild and, for a shipped app, re-archive / upload; **(4) confirm at runtime** that the running build reports the expected `sdkVersionNormalized` in its session payload (Amply admin) — the one check identical on every platform, and the only one that catches a stale binary or a JS-vs-native mismatch the build can't. Per-platform resolve + verify commands: each `references/sdk-cheatsheet-<platform>.md` → **"Upgrading the SDK version"**. (SDK ≤ 0.5.0 hard-coded `sdkVersionNormalized` to `1.0.0`, so the runtime assertion is only meaningful for builds ≥ 0.5.1; below that, fall back to the per-platform resolved-version check.)
 
@@ -321,15 +326,12 @@ Run this **once, only after Phase 7 verification passes** (a test event has land
 **`interactive` mode** — present one short `AskUserQuestion` menu, skippable with a single reply:
 
 - **Create your first campaign now** — author it in **Draft** and let the user activate after review.
-  - If the **Amply MCP is connected**, call `amply_create_campaign_from_template`, choosing a template that matches what this integration set up:
-    - Sets / relies on Custom Properties (e.g. `subscription_status`, `plan`) → `deeplink-on-property-change` — fires when the property changes to a target value (params: `propertyKey`, `newValue`, optional `oldValue`, `deeplink`); see `references/system-events.md`.
-    - Session / lifecycle oriented → `deeplink-on-session-n` or `deeplink-on-feature-discovery`.
-    - A rating prompt after a positive moment → `rate-review-after-positive-moment`.
-    For anything outside the templates, use `amply_create_campaign` (full authoring); `amply_describe_targeting` gives the vocabulary. **Always Draft** — the user reviews, then activates via `amply_set_campaign_state` or the admin UI.
+  - If the **Amply MCP is connected**, call `campaign_create` — there are no templates, so author the campaign in full from the Who/When/What candidates already in the Phase 4 audit. Read the server's campaign targeting reference resource first for the vocabulary, and `references/amply-mcp.md` for the payload traps (`snake_case` keys, the required `triggering.limit`, and targeting being one flat all-must-match list). **Pick a candidate the MCP can actually express.** It can target `country`, `application`, `app_version` and `os_version`, and it triggers on an event by name and type with **no parameter filters at all**. So a plain lifecycle trigger like `SessionStarted` works over MCP; a `CustomPropertyChanged` campaign does **not** — without its filters it fires on every property change the app reports rather than the one you meant (`references/system-events.md`). Anything needing a Custom Property, an install date, event history, or a param filter belongs in the admin UI — say so plainly instead of creating a campaign that looks right and behaves wrong.
+    **`campaign_create` always produces a Draft, and there is no update tool.** A wrong draft cannot be corrected, only superseded by another draft that litters the user's campaign list. Get the payload right on the first call: state the intended audience and trigger back to the user in one line before sending it.
   - If the **MCP is not connected**, point the user to the admin UI (`app.amply.tools`) and build the campaign from the Who/When/What candidates already in the Phase 4 audit (`amply-audit.md`) + `references/who-when-what-audit.md`.
 - **Done** — end the session.
 
-**`autopilot` mode** — do **not** prompt (the Mode contract forbids questions). Instead append a one-line recommendation to the audit: the single best-fit campaign for this app (template name + concrete params) the team can create in one MCP call or in the admin. A recommendation, not an action taken.
+**`autopilot` mode** — do **not** prompt (the Mode contract forbids questions). Instead append a one-line recommendation to the audit: the single best-fit campaign for this app (its audience, trigger and content, concretely) the team can create in one MCP call or in the admin. A recommendation, not an action taken.
 
 ### Phase 9 — Anonymous feedback delivery (opt-in)
 

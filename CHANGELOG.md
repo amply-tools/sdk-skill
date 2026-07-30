@@ -23,6 +23,9 @@ All notable changes to `amply-integration` are documented here. Format follows [
 ### Security
 - **The skill now states the one thing revoking a connection does not undo** (`references/amply-mcp.md`). Disconnecting invalidates the connection and its tokens; it does not invalidate an SDK API key obtained through it, which keeps working until someone deletes it in Amply. So the guidance is to mint a key only when the integration needs one and to prefer reading an application's existing keys over adding another — a spare key is a long-lived credential nobody is tracking.
 
+### Fixed
+- **The Android system-events snippet named a method that does not exist** (`references/sdk-cheatsheet-android.md`). It showed `override fun onSystemEvent(...)`; the interface declares `onEvent(event: EventInterface)`. An agent following it wrote code that does not compile. Caught while updating the same file for 0.9.0.
+
 ## [0.10.2] — 2026-07-26
 
 ### Fixed

@@ -164,7 +164,7 @@ There is **no lambda DSL** overload — `amply.registerDeepLinkListener { ... }`
 
 ```kotlin
 val systemEventsToken = amply.setSystemEventsListener(object : SystemEventsListener {
-    override fun onSystemEvent(/* ... */) { /* ... */ }
+    override fun onEvent(event: EventInterface) { /* ... */ }
 })
 ```
 

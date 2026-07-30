@@ -36,18 +36,20 @@ Read this before planning a phase around it — the gaps decide the shape of the
 **Can:** read projects; list, read, create, activate and stop campaigns; read active-user and
 per-campaign analytics; manage product prices, price batches and custom price indexes.
 
+**Can, but only on some connections — check the tool list:** register a project or an application
+and read or mint its API keys. Provisioning is newer than the campaign tools, needs the
+`apps:write` permission, and the creating half additionally requires that the Amply user be an
+**organization administrator**. So `application_create` being absent means any of three things, and
+the answer is the same in all of them: fall back to asking the user. Never assume it is there.
+
 **Cannot — these need the Amply admin UI:**
 
-* **Create a project, register an application, or produce API keys.** There is no provisioning
-  tool. `appId`, `apiKeyPublic` and `apiKeySecret` must come from the user.
 * **Edit a campaign.** There is no update tool. A wrong draft cannot be corrected, only replaced
   by another draft, which leaves litter in the customer's campaign list. Get it right once.
 * **Target on custom properties, install date, or event history.** On create, only `country`,
   `application`, `app_version` and `os_version` are accepted; anything else is refused outright.
 * **Filter a trigger on event parameters.** The triggering event carries a name and a type only —
   see the traps below, because this one fails quietly rather than loudly.
-* **List the applications inside a project**, so an application UUID also has to come from the
-  user.
 
 ## Tools
 
@@ -56,7 +58,12 @@ Names are `snake_case`. Only the connection check keeps the `amply_` prefix.
 | Tool | Notes |
 | --- | --- |
 | `amply_ping` | Connection check, no permission needed. |
-| `projects_list` | `{items: [{id, name}]}`. |
+| `projects_list` | `{items: [{id, name}]}`. Read-only. |
+| `project_create` | Needs `apps:write` + organization admin. Refused at the plan's project limit. |
+| `applications_list` | Under `campaigns:read`, because it is the only source of the application ids `campaign_create` targeting needs. Returns no secret. |
+| `application_create` | Needs `apps:write` + admin. Returns the `appId` **and** the first key pair. `platform` is case-sensitive (`iOS` / `Android`); one call per platform; a duplicate `bundleId` + `platform` is refused, not duplicated. |
+| `api_keys_list` | Needs `apps:write` — it returns live secrets in plaintext, which is why it is not under a read scope. |
+| `api_key_create` | Needs `apps:write` + admin. Mints an **additional** pair; the previous one stays live. |
 | `campaigns_list` | `project_id`, optional `search`, `limit` 1–100. |
 | `campaign_get` | The campaign as stored. |
 | `campaign_create` | Always a **draft**. See the payload traps below. |
@@ -105,6 +112,12 @@ apps** in the Amply admin.
 Never ask for the user's Amply password. Never write credentials into the repository or the audit
 log.
 
+**One thing revocation does not undo.** Disconnecting the app invalidates the connection and its
+tokens — it does **not** invalidate an SDK API key obtained through it. Such a key keeps working
+until someone deletes it in Amply. So mint a key only when the integration actually needs one, and
+prefer reading an application's existing keys over adding another: a spare key is a long-lived
+credential nobody is tracking.
+
 ## Errors worth handling
 
 | Symptom | Meaning |
@@ -124,8 +137,14 @@ version is deprecated, and its endpoint returns 404.**
 If a project still has it configured, remove it, connect to the hosted server, and tell the user
 to delete `~/.amply/credentials.json` — it holds a live sign-in token.
 
-None of these exist any more; do not call them: `amply_login`, `amply_logout`, `amply_status`,
-`amply_whoami`, `amply_signup`, `amply_ensure_app`, `amply_create_project`,
+None of these names exist any more; do not call them: `amply_login`, `amply_logout`,
+`amply_status`, `amply_whoami`, `amply_signup`, `amply_ensure_app`, `amply_create_project`,
 `amply_list_applications`, `amply_find_application`, `amply_get_application`,
 `amply_create_application`, `amply_create_api_key`, `amply_update_campaign`,
 `amply_describe_targeting`, `amply_set_campaign_state`, `amply_create_campaign_from_template`.
+
+Several of them do have successors under different names — `project_create`, `applications_list`,
+`application_create`, `api_key_create` — but the request shapes differ, so port the call rather than
+renaming it. There is no successor at all for signing in (the browser does that), for
+`amply_ensure_app`'s one-shot behaviour (do the read-then-create steps yourself), for editing a
+campaign, or for campaign templates.

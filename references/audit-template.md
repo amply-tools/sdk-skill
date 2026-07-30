@@ -21,7 +21,7 @@ Both lists are explicit sections in the output (§ 8 and § 9 below).
 
 ## Blocked
 
-Only present when something the integration needs could not be obtained during the run — most often the Amply credentials in `autopilot` mode, where the skill may not ask. Put it **first**, above the toolchain, so nobody reads a run as finished when it isn't. Omit the whole section when nothing is blocked; never leave an empty heading.
+Only present when something the integration needs could not be obtained during the run — most often the Amply credentials in `autopilot` mode on a connection that cannot provision, where the skill may neither ask nor create them itself. Put it **first**, above the toolchain, so nobody reads a run as finished when it isn't. Omit the whole section when nothing is blocked; never leave an empty heading.
 
 ```markdown
 ## Blocked — integration cannot report until this is resolved

@@ -92,9 +92,9 @@ When something fails, **fix it yourself first** — read the error, apply the kn
 Before anything else, check two MCPs:
 
 1. **Context7** — mirrors live `docs.amply.tools`; authoritative for SDK reference questions when present. See `references/context7-mcp.md` for detection + free install command + autonomous-mode fallback.
-2. **Amply MCP** — hosted by Amply, so there is nothing to install: `claude mcp add --transport http amply https://api.amply.tools/mcp`, then the user runs `/mcp` and approves in the browser. It covers campaigns, analytics and price management. It does **not** cover provisioning — projects, applications and API keys are admin-UI work (Phase 1b). See `references/amply-mcp.md` for detection, the tool list, the payload traps in `campaign_create`, and the tools that no longer exist. Same autonomous-mode rule as Context7 — never add an MCP server without explicit consent.
+2. **Amply MCP** — hosted by Amply, so there is nothing to install: `claude mcp add --transport http amply https://api.amply.tools/mcp`, then the user runs `/mcp` and approves in the browser. It covers campaigns, analytics and price management, and — where the server exposes it and the user granted `apps:write` — registering projects and applications and reading their API keys (Phase 1b checks which). See `references/amply-mcp.md` for detection, the tool list, the payload traps in `campaign_create`, and the tools that no longer exist. Same autonomous-mode rule as Context7 — never add an MCP server without explicit consent.
 
-**Tool boundary (which source for what):** use **Context7 for SDK reference** — code snippets, API signatures, version behaviour — and *never* to look up a user's account values. Use the **Amply MCP for account / backend automation** — reading projects, authoring campaigns, analytics — and *never* as a source of SDK reference. It is not a source of `appId` or API keys either; those come from the user (Phase 1b). Crossing the boundary means either fetching stale code from the backend or burning a backend round-trip on something that lives in the public docs.
+**Tool boundary (which source for what):** use **Context7 for SDK reference** — code snippets, API signatures, version behaviour — and *never* to look up a user's account values. Use the **Amply MCP for account / backend automation** — reading projects, authoring campaigns, analytics — and *never* as a source of SDK reference. Whether it can produce an `appId` and API keys depends on the connection — Phase 1b checks, and falls back to the user when it cannot. Crossing the boundary means either fetching stale code from the backend or burning a backend round-trip on something that lives in the public docs.
 
 ### Phase 0.5 — Goal sanity check
 
@@ -152,28 +152,45 @@ Identify the primary platform, package manager, and navigation library. See `ref
 
 After Phase 1 has detected `platform`, `bundleId`, and a project name, resolve the Amply application **once**, here, before any wrapper or key work in later phases.
 
-**This step goes through the Amply admin UI. The MCP cannot do it** — the hosted server has no tool to create a project, register an application, or produce API keys. Do not look for one, and do not offer the user an "automatic" option that does not exist.
-
 **Which values you need depends on the platform.** `appId` and `apiKeyPublic` always. `apiKeySecret` **additionally on native iOS, Android and KMP**, where `AmplyConfig` requires it — but **not on React Native / Expo**, where it is optional and unused (Phase 5). Do not send an RN-only integration hunting for a secret it will never pass.
 
-Where each comes from:
+**There are two paths, and you must check which one you are on rather than assume.** Provisioning over MCP is newer than the campaign tools: the server may not expose it, it needs a permission (`apps:write`) the user may not have granted, and only an organization administrator can use the creating half. Look at the tool list — if `application_create` is there, take **path A**; otherwise take **path B**. Never guess, and never tell the user an automatic option exists before you have seen the tool.
+
+#### Path A — the MCP provisions it
+
+Nothing leaves the editor. Read before writing, so a re-run resolves to what already exists instead of registering duplicates:
+
+1. `projects_list` — reuse the project if one fits. Create with `project_create` only when none does: plans cap how many projects an organization may have, and the refusal is a plan limit, not a bug.
+2. `applications_list` — an application is unique per `bundleId` + `platform`. If the pair is already registered, reuse it and read its keys with `api_keys_list` instead of registering again.
+3. `application_create` — returns the `appId` **and** the first key pair in one call. `bundleId` must match `PRODUCT_BUNDLE_IDENTIFIER` exactly. `platform` is **case-sensitive**: `iOS` or `Android`, not `ios`/`IOS`.
+4. **One application per platform.** A React Native or Expo app that ships both stores needs **two** `application_create` calls with the same `bundleId` and different `platform`, and Phase 5 wires the pair matching each platform. Sharing one pair across both is wrong even though it appears to work.
+
+Two things that look like failures and are not: re-registering an existing `bundleId` + `platform` is **refused rather than duplicated** — that is the guard working, so read the existing application instead of retrying; and a freshly created key ingests events immediately but **campaign delivery only begins once the project's first campaign is activated**, so an empty campaign list is not a broken key.
+
+If a create is refused because the user is not an organization administrator, **fall through to path B** and say so plainly. Retrying will not help and no other tool grants it.
+
+#### Path B — the Amply admin UI
+
+The MCP on this connection cannot provision, so the values come from the user. Where each comes from:
 
 1. **Sign up or log in** at https://app.amply.tools — the organization is created with the account, and that email owns it.
-2. **Create a project**, or pick an existing one. Plans cap how many projects an organization may have, so reuse where possible.
-3. **Register the application** under the project. Required: `bundleId` — it must match `PRODUCT_BUNDLE_IDENTIFIER` exactly — and `platform` (`iOS` / `Android`). The admin returns an `appId` (a UUID, **not** the bundleId) plus the first API key.
-4. **iOS and Android are two separate applications with two separate key pairs.** A React Native or Expo integration that ships both needs both registered, and Phase 5 needs both key pairs.
+2. **Create a project**, or pick an existing one.
+3. **Register the application** under the project, with the `bundleId` matching `PRODUCT_BUNDLE_IDENTIFIER` exactly and the right platform. The admin returns an `appId` (a UUID, **not** the bundleId) plus the first API key.
+4. **iOS and Android are two separate applications with two separate key pairs**, same as path A.
 
 The `apiKeySecret` stays readable in the admin — the application's API-keys tab masks it on screen but the copy button yields the real value. **Do not tell the user it is shown only once, and do not have them mint a new key just to recover it.** Minting a new key leaves the previous one live, so a needless mint is an orphan credential the team has to clean up.
 
-Record one `amplyApps` entry per shipped platform and carry them into Phase 5. Also note the **project name and application name** for each, and whether it was created now or reused: the MCP cannot list applications or resolve an `appId` back to a name, so if this is not written down here, a later run has no way to tell an existing application from a missing one — and will offer to register a duplicate.
+#### Both paths
 
-**In `interactive` mode**, ask for the three values and wait — this is the one place the run genuinely cannot proceed on a default.
+Record one `amplyApps` entry per shipped platform and carry them into Phase 5. Also note the **project name and application name** for each, and whether it was created now or reused — that is what lets a later run tell an existing application from a missing one.
 
-**In `autopilot` mode** the Mode contract forbids the question, and no default can invent a real key. Do not halt: the wrapper, the deeplink wiring and the audit are all still worth producing. Instead:
+**In `interactive` mode**: on path B, ask for the values and wait — this is the one place the run genuinely cannot proceed on a default. On path A, registering the application needs no confirmation, but **creating a new project does**: it consumes one of the organization's allowance, so name the project you would reuse and let the user say whether to reuse it or add one.
 
-* Write the env entries with values that are **obviously unfilled** — `AMPLY_APP_ID=<REQUIRED: see amply-audit.md § Blocked>` — never a plausible-looking fake. A fake that parses lets the app initialize against nothing and report into the void; a value that clearly isn't a UUID makes the SDK fail loudly at `initialize` on the first run.
-* Record this as the run's **single blocking item, at the top of the audit**, with the three values named and where to get them. Phase 7's verification cannot pass without them, so say that too rather than reporting a green finish.
-* Do **not** attempt to create an Amply account, and never generate a password or write credentials into the audit or the repository.
+**In `autopilot` mode** the Mode contract forbids the question.
+
+* On **path A** you do not need to ask — the user authorized this when they granted the permission. Prefer reusing an existing project over creating one, and log every object you created in the audit so the team can find it.
+* On **path B** no default can invent a real key. Do not halt: the wrapper, the deeplink wiring and the audit are all still worth producing. Write the env entries with values that are **obviously unfilled** — `AMPLY_APP_ID=<REQUIRED: see amply-audit.md § Blocked>` — never a plausible-looking fake, which would let the app initialize against nothing and report into the void. Record it as the run's **single blocking item at the top of the audit**, name the values this platform needs and where to get them, and say that Phase 7 cannot pass without them rather than reporting a green finish.
+* Never create an Amply account, never generate a password, and never write credentials into the audit or the repository.
 
 ### Phase 2 — Analytics audit
 

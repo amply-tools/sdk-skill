@@ -44,12 +44,14 @@ the answer is the same in all of them: fall back to asking the user. Never assum
 
 **Cannot — these need the Amply admin UI:**
 
-* **Edit a campaign.** There is no update tool. A wrong draft cannot be corrected, only replaced
-  by another draft, which leaves litter in the customer's campaign list. Get it right once.
-* **Target on custom properties, install date, or event history.** On create, only `country`,
-  `application`, `app_version` and `os_version` are accepted; anything else is refused outright.
-* **Filter a trigger on event parameters.** The triggering event carries a name and a type only —
-  see the traps below, because this one fails quietly rather than loudly.
+* **Delete or clone a campaign.** Neither has a tool. A draft created by mistake stays in the
+  customer's campaign list until someone removes it by hand, so it is still worth getting the
+  payload right on the first call rather than iterating.
+
+Campaign **authoring and editing** used to be on this list and no longer are: `campaign_update`
+exists (a full replace that returns the campaign to Draft), targeting reaches every condition the
+admin has, and a trigger carries its event parameter filters. If a tool named here is missing from
+your connection, the server predates that change — trust the tool list over this page.
 
 ## Tools
 
@@ -67,6 +69,7 @@ Names are `snake_case`. Only the connection check keeps the `amply_` prefix.
 | `campaigns_list` | `project_id`, optional `search`, `limit` 1–100. |
 | `campaign_get` | The campaign as stored. |
 | `campaign_create` | Always a **draft**. See the payload traps below. |
+| `campaign_update` | **Full replace**, not a patch — omitted fields are cleared, and the campaign returns to Draft. Takes `snake_case`, unlike what `campaign_get` returns. |
 | `campaign_activate` | Publishes a draft. Refused at the plan's active-campaign limit. |
 | `campaign_stop` | Stops a live campaign. Cannot return it to draft — neither can the admin. |
 | `statistics_active_users` | Daily or monthly, per project, range ≤ 366 days. |
@@ -88,15 +91,17 @@ Each of these produces a confusing error rather than a clear one.
 * Targeting is a **flat list of conditions, all of which must match** — not OR-ed groups. Two
   `country` conditions therefore match nobody. Express a range as two conditions
   (`app_version >= 1.4.0` and `app_version < 1.5.0`).
-* **Event parameter filters are dropped in silence.** This is the one trap that does not
-  announce itself: unknown *top-level* keys are refused with an error, but the triggering event
-  accepts only a name and a type — any parameter filter you attach is discarded and the campaign
-  is created without it. Nothing in the response says so. The campaign then triggers on *every*
-  occurrence of that event name, so a filter you believed narrowed the audience did nothing. Any
-  campaign whose correctness depends on a parameter filter must be authored in the admin UI.
-* `campaign_get` returns a different casing from what `campaign_create` accepts, so a
-  read-modify-write round trip needs hand translation. With no update tool, prefer getting it
-  right once over iterating.
+* Event **parameter filters work** — pass them as `triggering.event.params`, and the same shape
+  is accepted by the `event_count` and `event_date` targeting conditions. Values are always
+  strings, whatever `value_type` says: pass `"3"`, not `3`. (Until mid-2026 these were accepted
+  and then silently discarded, which made a `CustomPropertyChanged` campaign fire on every
+  property the app reported. If you are talking to an older server, check that a filter you sent
+  comes back from `campaign_get`.)
+* `campaign_get` returns **camelCase** where the write tools take **snake_case**, so a
+  read-modify-write round trip still needs hand translation — `compare_type` comes back as
+  `compareType`. `campaign_update` says the same thing in its own description.
+* `campaign_update` **replaces the campaign in full** and returns it to Draft. There is no clone
+  and no delete, so a campaign created by mistake has to be removed by hand in the admin.
 
 The server publishes a **campaign targeting reference** as an MCP resource
 (`amply://campaign/targeting-reference`), with worked examples. Read that rather than guessing the

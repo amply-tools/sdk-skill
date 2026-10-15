@@ -60,7 +60,7 @@ The skill is a 9-phase state machine. It threads a small set of variables betwee
 | `mode` | `autopilot` \| `interactive` | unset | § Mode — resolved once, before Phase 0 |
 | `platform` | `RN` \| `iOS` \| `Android` \| `KMP` | unset | Phase 1 detection |
 | `rnFlavour` | `BareA` \| `BareExpoB` \| `PrebuildC` \| `ManagedD` | unset | Phase 1 (RN only) |
-| `amplyApps` | one entry per shipped platform, each `{ platform, appId, apiKeyPublic, apiKeySecret? }` | unset | Phase 1b (from the Amply admin) |
+| `amplyApps` | one entry per shipped platform, each `{ platform, appId, apiKeyPublic, apiKeySecret }` | unset | Phase 1b (from the Amply admin) |
 | `envBlock` | the env entries assembled from `amplyApps` — two sets when the project ships both platforms | unset | Phase 1b |
 | `credentialsBlocked` | `true` when Phase 1b could not obtain real values | `false` | Phase 1b (autopilot) |
 | `wrapperStrategy` | `extend` \| `new` | `extend` | Phase 2 analytics audit |
@@ -103,11 +103,11 @@ Before anything else, check two MCPs:
 
 | Goal phrasing | Amply role | Host-app role |
 |---|---|---|
-| "Show a custom popup to the user" | ❌ Amply does not render UI. | Host renders the popup. Amply fires a Deeplink at the right moment; host responds with whatever screen the deeplink routes to. |
-| "A/B test which popup variant a user sees" | ⚠ partial. Amply chooses *which* deeplink fires (per-campaign), can target on Custom Properties and event history (Amply SDK 0.6.1+). **Amply does not split traffic.** | Host assigns the bucket (typically a coin-flip persisted in storage + pushed as a Custom Property) and renders both variants. |
+| "Show a custom popup / sheet / onboarding screen" | ✅ **Mini-app** (Amply SDK 0.12.0+): a sheet, card, full screen or story built in Amply Studio and drawn by the SDK — no app release per change. ⚠ Only what Studio's components can build. | Nothing for a Mini-app beyond the deeplink listener its buttons may use. For native UI Studio can't build, Amply fires a Deeplink and the host renders the screen. |
+| "A/B test which popup variant a user sees" | ⚠ partial. Amply chooses *which* action fires (per-campaign), can target on Custom Properties and event history (Amply SDK 0.6.1+). **Traffic splitting is not generally available — don't offer it.** | Host assigns the bucket (typically a coin-flip persisted in storage + pushed as a Custom Property) and renders both variants. |
 | "Send a push notification / email" | ❌ Not Amply. | Use a push provider / email provider. Amply can deeplink users to a screen *after* they open the app. |
 | "Throttle prompts / rate-limit asks" | ✅ Repeat Rules + Frequency Limits on the campaign. | Implement the deeplink target. |
-| "Trigger an in-app action based on user history" | ✅ built-in on Amply SDK 0.6.1+: audience rules target event history directly (counts, first/last occurrence, event property filters) alongside Custom Properties, combined with a triggering event. | Fire the events; implement the deeplink target. (Counter Custom Properties only needed for fleets below SDK 0.6.1 or for derived state.) |
+| "Trigger an in-app action based on user history" — incl. "hasn't done X for N days" | ✅ built-in on Amply SDK 0.6.1+: audience rules target event history directly — counts, and **how long ago an event first/last happened** ("not in the last 7 days" includes never), with event property filters — alongside Custom Properties, combined with a triggering event. | Fire the events. **Don't add `last_x_at` / `x_count` properties for this** — they duplicate what the SDK already records. (Counter properties only for fleets below SDK 0.6.1 or derived state.) |
 
 In `autopilot`, write one paragraph at the top of the audit: "Your stated goal `<X>` maps onto Amply as follows: Amply will <Y>, your app must <Z>." If any element of the goal lands in the ❌ column, surface that as the first item of the audit. The integration may still be worth doing for the parts Amply *can* do, but the team needs to know upfront where they'll need their own infrastructure.
 
@@ -145,7 +145,7 @@ This phase writes config only — it never sends anything. The telemetry POST it
 
 ### Phase 1 — Discovery + version gating
 
-Identify the primary platform, package manager, and navigation library. See `references/platform-detection.md`. **Stop and warn** if the project fails any version gate (RN < 0.79, RN New Architecture not enabled, Expo SDK < 53, Android `minSdk` < 24 for RN target / < 21 for KMP, iOS deployment target < 15.1 for RN target / < 14.1 for KMP). Also record the **Amply SDK floor**: pin **Amply SDK 0.6.1+** on new integrations (the cheatsheets' install snippets do) — event-history audience targeting only matches apps running 0.6.1+, and devices on older SDK builds silently don't match those campaigns (not a build failure; a capability floor — see `references/platform-detection.md` §5). Echo the detected stack back as one block; ask once: "is this right?"
+Identify the primary platform, package manager, and navigation library. See `references/platform-detection.md`. **Stop and warn** if the project fails any version gate (RN < 0.79, RN New Architecture not enabled, Expo SDK < 53, Android `minSdk` < 24 for RN target / < 21 for KMP, iOS deployment target < 15.1 for RN target / < 14.1 for KMP). Also record the **Amply SDK floor**: pin the version the cheatsheets' install snippets use on new integrations. Two capability floors matter for campaigns: **0.6.1+** for event-history audience targeting and **0.12.0+** for Mini-app actions — event-history audience targeting only matches apps running 0.6.1+, and devices on older SDK builds silently don't match those campaigns (not a build failure; a capability floor — see `references/platform-detection.md` §5). Echo the detected stack back as one block; ask once: "is this right?"
 
 **For RN projects: identify the flavour precisely** — Pure Bare RN, Bare RN + Expo Modules, Expo Prebuild Workflow, or Expo Managed. The check is `git ls-files ios/ android/`: hand-managed native folders → "no prebuild ever", regardless of whether `expo` is in `package.json`. This single distinction drives whether `expo prebuild` is safe to run. (No `app.json` plugin entry is needed for Amply in any flavour — since SDK 0.2.12 the config plugin is a no-op; autolinking registers the module.)
 
@@ -153,7 +153,7 @@ Identify the primary platform, package manager, and navigation library. See `ref
 
 After Phase 1 has detected `platform`, `bundleId`, and a project name, resolve the Amply application **once**, here, before any wrapper or key work in later phases.
 
-**Which values you need depends on the platform.** `appId` and `apiKeyPublic` always. `apiKeySecret` **additionally on native iOS, Android and KMP**, where `AmplyConfig` requires it — but **not on React Native / Expo**, where it is optional and unused (Phase 5). Do not send an RN-only integration hunting for a secret it will never pass.
+**Every platform needs all three values** — `appId`, `apiKeyPublic` and `apiKeySecret`. The SDK signs requests on the device with the secret, so it is required on React Native / Expo too: since RN SDK 0.12.1 `initialize` rejects a config with any key missing, and Amply does not start.
 
 **There are two paths, and you must check which one you are on rather than assume.** Provisioning over MCP is newer than the campaign tools: the server may not expose it, it needs a permission (`apps:write`) the user may not have granted, and only an organization administrator can use the creating half. Look at the tool list — if `application_create` is there, take **path A**; otherwise take **path B**. Never guess, and never tell the user an automatic option exists before you have seen the tool.
 
@@ -238,9 +238,9 @@ Inventory user properties → Amply Custom Properties. Allowed value types: **`S
 **Hard-exclude defaults for Custom Properties** (also in `references/custom-properties.md`):
 - PII keys (email, phone, address, raw_ip, full_name, government_id) → strip / hash; never as Custom Property.
 - Unique-per-device or transient identifiers (raw user_id, device_id, advertising_id, session_id, order_id, transaction_id, UUID-shaped values) → skip. Exception: keys named `*_id` whose **values** are categorical (e.g. `screen_id: "paywall_coffee_goals_v2"`) — include after the domain check in `property-writes.md` § Decision tree step 2.
-- Free-form timestamps (sub-second precision, raw event timestamps) → skip. Baseline `*_at` properties (install_date, trial_ends_at, last_paywall_view_at, onboarding_completed_at) — supported via DateTime native / epoch number RN.
+- Free-form timestamps (sub-second precision, raw event timestamps) → skip. `*_at` properties are for **state the events can't carry** — a date that comes from outside the app's events (`trial_ends_at` from RevenueCat) or happened before the SDK did. The recency of anything the app fires as an event (last paywall view, last session, last purchase) is an **event-date condition**, never a `last_x_at` property.
 
-Propose additional Custom Properties for targeting from `references/custom-properties.md` (`subscription_status`, `trial_ends_at`, `last_paywall_view_at`, `onboarding_completed`, `locale`, `install_date`, …). For "user fired event X N times" rules: **direct event-history targeting is built in for apps on Amply SDK 0.6.1+** (`how many times` counts with six comparison ops plus `has happened` (ever) / `has never happened`, `first occurrence` / `last occurrence` dates, event property filters — see `references/who-when-what-audit.md` § Who). `*_count` counter properties remain the fallback for fleets with older installed builds and for derived state that isn't a single event (see `references/custom-properties.md` § Counter properties).
+**Before proposing any Custom Property for a targeting rule, check whether event history already expresses it** (Amply SDK 0.6.1+, see `references/who-when-what-audit.md` § Who): how many times an event happened (six comparison ops, plus `at least once` / `never`), and **when it first or last happened** — `more than N days ago`, `not in the last N days` (includes never), `less than N days ago`, or before/after a date — narrowed by event property filters (all must match). "Hasn't opened the paywall in 7 days", "logged a workout in the last 3 days", "first purchase over a month ago" all need **zero** new properties. Mind the trigger-event trap: a condition on the *same* event as the trigger always sees the current occurrence. Propose Custom Properties from `references/custom-properties.md` only for state events can't carry (`subscription_status`, `trial_ends_at`, `onboarding_completed`, `locale`, …). `*_count` counters remain the fallback for fleets below SDK 0.6.1 and for derived state that isn't a single event (see `references/custom-properties.md` § Counter properties).
 
 **Phase 3 gap check** — before producing § 6 (Who/When/What):
 
@@ -254,9 +254,9 @@ Per Scope discipline, these are **observations**, not action items. Interactive 
 
 For each candidate campaign, walk Amply's campaign model — see `references/who-when-what-audit.md`:
 
-- **Who** — list device properties (country, OS / app version, install date), Custom Properties, and event-history conditions (Amply SDK 0.6.1+ — event counts, first/last-occurrence dates, event property filters) needed; mark which are populated vs missing (for event conditions: does the app actually fire the event?).
+- **Who** — list device properties (country, OS / app version, install date — the first time Amply ran on the device), Custom Properties, event-history conditions (Amply SDK 0.6.1+ — event counts, first/last-occurrence dates, event property filters) and campaign history (seen / last seen another campaign) needed; mark which are populated vs missing (for event conditions: does the app actually fire the event?). All conditions are AND — there is no OR.
 - **When** — list triggering event(s); flag whether **Event Param** rules are needed (e.g. `Purchase` filtered by `currency = "USD"`); record required keys/types. Note Repeat Rules and Frequency Limits required.
-- **What** — confirm the action is **only** `Deeplink` or `RateReview`. Reject any plan involving Amply-rendered popups, push notifications, in-app messages, or cross-channel sends — Amply does not draw UI or send pushes.
+- **What** — `Mini-app` (Amply Studio screen drawn by the SDK, 0.12.0+), `Deeplink`, or `RateReview`. Reject push notifications, email/SMS and other cross-channel sends — Amply is in-app only.
 
 Save findings as `amply-audit.md` (template: `references/audit-template.md`). This is a **suggestion document**, not a prescription.
 
@@ -281,7 +281,7 @@ Per-platform signatures are in `references/sdk-cheatsheet-*.md`. Use only the me
 
 Initialise Amply in the right place using **the platform-correct API** (see SDK cheatsheets):
 
-- RN/Expo: `await Amply.initialize({ appId, apiKeyPublic, debug? })` (static-style module). RN does not require `apiKeySecret`.
+- RN/Expo: `await Amply.initialize({ appId, apiKeyPublic, apiKeySecret, debug? })` (static-style module). **`apiKeySecret` is required** — without it `initialize` rejects with `AmplyConfigError` and Amply never starts.
 - iOS: `let amply = Amply(config: AmplyConfig(appId:, apiKeyPublic:, apiKeySecret:, defaultConfig: nil))` — **`apiKeySecret` is required**; strong reference held by app.
 - Android: `val amply = Amply(config = AmplyConfig(appId, apiKeyPublic, apiKeySecret, defaultConfig = null), application = this)` — **`apiKeySecret` is required**; held on `Application`. Or use the `amplyConfig { api { ... } }` builder DSL.
 
@@ -393,7 +393,7 @@ Run this **only** on a successful finish **and** only if `feedbackConsent == yes
 | Skipping Phase 0 (Context7 check). | Always check; offer to install Context7 if missing — it's free and gives live `docs.amply.tools` answers. |
 | Running `npx expo prebuild` in a **Bare RN + Expo Modules** project (Flavour B). | Wipes the hand-managed `ios/` and `android/` folders. Check `git ls-files ios/ android/` first — hand-edited Swift / Kotlin means do not prebuild. Use `pod install` + Gradle sync instead. |
 | Adding `"@amplytools/react-native-amply-sdk"` to `app.json` → `expo.plugins` — **any flavour**. | Not needed since SDK 0.2.12: the config plugin is a no-op pass-through; RN autolinking (`react-native.config.js`) registers the module everywhere, including during `prebuild`. Harmless if already present (the SDK prints a removal notice during `prebuild`) — remove the entry when you next touch `app.json`. |
-| Constructing native `AmplyConfig` without `apiKeySecret` (or without `defaultConfig`). | Both are required positional/named args on iOS / Android / KMP. RN does not need them. |
+| Initializing without `apiKeySecret` — on **any** platform, RN included. | Required everywhere: native `AmplyConfig` won't build without it (plus `defaultConfig` on iOS / Android / KMP), and RN `initialize` rejects (0.12.1+) or crashed (earlier). |
 | Using `Amply.initialize(...)` on Swift / Kotlin / KMP. | RN/Expo only. Native uses instance constructors `Amply(config:)`. |
 | Inventing API methods (`AmplySDK.shared.foo()`, `setDeeplinkHandler { ... }`, `AmplySDK.initialize(context, "API_KEY")`). | Use only methods documented in the platform cheatsheet. |
 | Calling Amply SDK from many places instead of a wrapper. | Route through the existing analytics wrapper; fan out from there. |
@@ -406,7 +406,11 @@ Run this **only** on a successful finish **and** only if `feedbackConsent == yes
 | Firing `track` / `setCustomProperties` before init finishes (init not `await`ed). | The first events race the SDK construction and are dropped. Initialise (and `await` it on RN/Expo) **before** any `track`; see Phase 5.5. |
 | Calling `setUserId` after the first `track` of a session. | Early events land on the anonymous profile and never re-attribute. Set the user id at session start / right after login, before the first wrapper `track`. |
 | Registering the deeplink listener too late (after first frame / inside a screen). | A cold-start deeplink fires before the listener exists and is lost. Register once at app startup, globally — not per-screen (see Phase 6 listener-placement note). |
-| Promising Amply-rendered popups, push, email, or cross-channel sends. | Only `Deeplink` and `RateReview` actions exist. Host app renders any UI. |
+| Promising push, email, cross-channel sends, or arbitrary native UI drawn by Amply. | Actions are `Mini-app` (what Amply Studio can build, SDK 0.12.0+), `Deeplink` and `RateReview`. Anything Studio can't build is a host screen behind a Deeplink. |
+| Adding a `last_x_at` / `x_count` Custom Property for "hasn't done X in N days" / "did X N times". | Use the built-in event conditions (`last happened not in the last N days`, counts) — the SDK already records the history. Properties only for state events can't carry. |
+| Putting "last happened more than N days ago" on the **same** event as the trigger. | The trigger occurrence is recorded first, so it always reads "just now". Put the recency on a different event (e.g. trigger `SessionStarted`, condition on `SessionFinished` or the core value event). |
+| Writing an audience with OR. | Targeting is AND-only. Split into two campaigns. |
+| Assuming Install Date is the app install date. | It is when Amply first ran on the device. For an app that added Amply recently, "installed more than 30 days ago" matches nobody for 30 days. |
 
 ## Feedback
 

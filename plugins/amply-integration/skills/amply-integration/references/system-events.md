@@ -14,6 +14,7 @@ This matters for the audit: if the project's existing analytics fires its own ve
 | `SessionStarted` | At session start | `type: 'cold' \| 'warm'` |
 | `SessionFinished` | At session end | — |
 | `CampaignShown` | When a campaign action fires | `campaignId` |
+| `CampaignResolved` | When a presented action (a Mini-app, a gated action) finishes or is skipped | `campaignId`, `result` (`Completed` / `Dismissed` / `Unavailable` / `SkippedNoPresenter` / `SkippedNoContinuation`), `unavailableReason` when `Unavailable` |
 | `EventTriggered` | Meta-event for every `track()` call | mirrors the triggering event's name |
 | `CustomPropertyChanged` | When any Custom Property is set, updated, removed, or cleared (deduplicated — only fires when `oldValue != newValue`) | `key: String`, `oldValue: Any` (omitted on first set), `newValue: Any` (omitted on remove/clear), `timestamp: Long` (epoch millis) |
 
@@ -38,7 +39,7 @@ When the audit captures a `*_count` Custom Property that depends on session coun
 
 **`CustomPropertyChanged` enables property-change-driven campaigns without custom events.** Where previously a campaign like "fire deeplink when subscription_status changes to 'expired'" required the app to fire a custom `*_changed` event after each `setCustomProperty` call, now the SDK emits `CustomPropertyChanged` (type=system) automatically. The campaign **When** can target this event directly with Event Param filters on `key === 'subscription_status'` AND `newValue === 'expired'`. Dedup is built in (the SDK only fires when `oldValue != newValue`), and the property persistence is guaranteed independently of the dispatch — a listener failure can't lose the write.
 
-**Author this one in the admin UI, not over MCP.** The Event Param filters are what make the trigger specific, and `campaign_create` cannot express them — it accepts the event's name and type and nothing else. A `CustomPropertyChanged` campaign created over MCP therefore fires on **every** property change the app reports, not the `subscription_status` → `expired` one you asked for. That is worse than no campaign: it is a campaign that shows the wrong thing to the wrong people. Build the trigger in the admin, where the filters exist.
+**Always filter it.** Without Event Param filters a `CustomPropertyChanged` trigger fires on **every** property change the app reports, not the `subscription_status` → `expired` one you asked for. Over MCP, pass the filters as `triggering.event.params` (`key`, `newValue`) and confirm with `campaign_get` that they came back.
 
 ## What to do if the team really wants their own session event
 

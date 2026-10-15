@@ -62,18 +62,19 @@ The skill should propose this set on every integration unless the user opts out.
 | `subscription_status` | String | RevenueCat / Adapty / Superwall / your billing layer | `'free'` / `'trial'` / `'active'` / `'expired'` / `'in_grace_period'` |
 | `subscription_plan` | String | Same | `'monthly_premium'`, `'yearly_pro'` |
 | `trial_ends_at` | DateTime (native) / number (RN, epoch) | RevenueCat `CustomerInfo.entitlements.trialPeriodEndDate` | `1718640000` |
-| `last_paywall_view_at` | DateTime / number | App-side, stamped on paywall view | |
 | `total_purchases` | Number | Counter property — fallback only; on Amply SDK 0.6.1+ target the `Purchase` event count directly (see "Counter properties" below) | `3` |
 | `paywall_view_count` | Number | Counter property — fallback only; on Amply SDK 0.6.1+ target the `PaywallShown` event count directly (see "Counter properties" below) | `7` |
 | `onboarding_completed` | Boolean | App-side, set when the last onboarding step finishes | `true` |
 | `onboarding_completed_at` | DateTime / number | Same | |
 | `locale` | String | OS locale at session start | `'en-US'` |
-| `install_date` | DateTime / number | First launch timestamp, persisted | |
-| `app_version_at_install` | String | First-launch app version, persisted | `'1.0.3'` |
+| `install_date` | DateTime / number | Only if you need the **true** install date: Amply's built-in Install Date is when Amply first ran on the device, which for an app that added Amply later is the update date | |
+| `app_version_at_install` | String | Only if you need the version of the **original** install: the built-in App Install Version is the version that first ran Amply on the device | `'1.0.3'` |
 | `notifications_enabled` | Boolean | Push permission state | `true` |
 | `att_status` | String | iOS only — current ATT status | `'authorized'` / `'denied'` / `'undetermined'` |
 | `referral_source` | String | If your install attribution carries one | `'tiktok'` |
 | `feature_flags_active` | String | Comma-separated active flags (since arrays aren't supported) | `'new_paywall_v2,grouped_settings'` |
+
+**Not in this catalogue on purpose: `last_x_at` for anything the app fires as an event** (`last_paywall_view_at`, `last_session_at`, `last_purchase_at`). "Hasn't seen the paywall in 7 days" is the event condition `PaywallShown` → `last happened` → `not in the last 7 days` — see `who-when-what-audit.md` § Recency recipes. A `*_at` property earns its place only for a date the events don't carry: one that comes from outside the app (`trial_ends_at` from billing), predates the SDK, or happened on another device.
 
 ## Counter properties — the fallback for "fire after Nth event"
 

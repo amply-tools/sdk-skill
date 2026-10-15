@@ -9,7 +9,7 @@ The iOS SDK is constructed instance-style — `Amply(config:)` — and the host 
 In Xcode → File → Add Packages → enter the public repo URL. In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/amply-tools/amply-sdk-ios.git", from: "0.10.1"),
+.package(url: "https://github.com/amply-tools/amply-sdk-ios.git", from: "0.12.0"),
 ```
 
 Then add `AmplySDK` to the target's `dependencies`.
@@ -17,12 +17,12 @@ Then add `AmplySDK` to the target's `dependencies`.
 ## Install — CocoaPods
 
 ```ruby
-pod 'AmplySDK', '~> 0.10.1'
+pod 'AmplySDK', '~> 0.12.0'
 ```
 
 Then `pod install`.
 
-**Pin `0.10.1` or later** (both managers). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting still needs 0.6.1+, which 0.10.1 satisfies.)
+**Pin `0.12.0` or later** (both managers; Mini-app campaigns need 0.12.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
 
 ## Upgrading the SDK version — resolve, verify, rebuild, re-ship
 

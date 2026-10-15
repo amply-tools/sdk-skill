@@ -7,12 +7,12 @@ The RN SDK exposes a **module with static-style methods** — different from the
 ## Install
 
 ```bash
-yarn add @amplytools/react-native-amply-sdk@^0.10.1
-# or: npm install @amplytools/react-native-amply-sdk@^0.10.1
-# or: pnpm add @amplytools/react-native-amply-sdk@^0.10.1
+yarn add @amplytools/react-native-amply-sdk@^0.12.1
+# or: npm install @amplytools/react-native-amply-sdk@^0.12.1
+# or: pnpm add @amplytools/react-native-amply-sdk@^0.12.1
 ```
 
-**Pin `0.10.1` or later.** 0.9.0 fixes a use-after-free that crashed the app on every JS bundle reload in development, plus a gate registered by a previous host parking the next gated call for the full fail-open timeout. **The JS API is unchanged** — the fix is entirely inside the native bridge, so there is nothing to migrate. (Event-history audience targeting still needs 0.6.1+, which 0.10.1 satisfies.) The npm package pins the matching native SDK (iOS Pod / Android Gradle) via its podspec / `build.gradle`.
+**Pin `0.12.1` or later** (0.12.0 adds Mini-app campaigns; 0.12.1 rejects a config with a missing key instead of crashing). 0.9.0 fixes a use-after-free that crashed the app on every JS bundle reload in development, plus a gate registered by a previous host parking the next gated call for the full fail-open timeout. **The JS API is unchanged** — the fix is entirely inside the native bridge, so there is nothing to migrate. (Event-history audience targeting needs 0.6.1+ and Mini-app campaigns 0.12.0+, which 0.12.1 satisfies.) The npm package pins the matching native SDK (iOS Pod / Android Gradle) via its podspec / `build.gradle`.
 
 **No `app.json` plugin entry is needed — in any flavour.** Since SDK 0.2.12 the Amply Expo config plugin is a no-op pass-through: React Native autolinking (via the package's `react-native.config.js`) registers the native module on both platforms, including during `expo prebuild`. If the project already lists `"@amplytools/react-native-amply-sdk"` under `expo.plugins` (older integrations did), it is harmless — the SDK just prints a removal notice during `prebuild` — remove the entry next time you touch `app.json`. You still must identify the RN flavour via `references/platform-detection.md` §2 first: it decides whether `expo prebuild` is safe to run at all.
 
@@ -53,13 +53,13 @@ import Amply from '@amplytools/react-native-amply-sdk';
 await Amply.initialize({
   appId: process.env.EXPO_PUBLIC_AMPLY_APP_ID!,
   apiKeyPublic: process.env.EXPO_PUBLIC_AMPLY_KEY!,
-  // apiKeySecret: process.env.EXPO_PUBLIC_AMPLY_KEY_SECRET, // optional on RN
+  apiKeySecret: process.env.EXPO_PUBLIC_AMPLY_KEY_SECRET!, // required since 0.12.1
   debug: __DEV__,         // optional
   logLevel: 'info',       // optional: 'none' | 'error' | 'warn' | 'info' | 'debug'
 });
 ```
 
-`apiKeySecret` **is accepted** by the RN config (`apiKeySecret?: string | null`) but is **not required** — unlike the native iOS/Android SDKs, where it's mandatory in `AmplyConfig`. Pass it only if your Amply tenant requires it; otherwise leave it off.
+**All three keys are required** — `appId`, `apiKeyPublic` and `apiKeySecret`. The SDK signs every request on the device with the secret, so it ships inside the app next to the public key, exactly as on native. Since **0.12.1**, `initialize` rejects with `AmplyConfigError` (and logs `'<key>' is required — Amply is not initialized`) when any of them is missing or blank; earlier versions crashed the app in the native config builder instead. A missing secret therefore means *no Amply at all*, not a degraded mode.
 
 Call once, as early as possible — root component mount, `index.ts`, or an effect that runs before any `track`.
 
@@ -213,7 +213,7 @@ if (decision.outcome === 'proceed') {
 
 - React Native ≥ 0.79, **New Architecture enabled** (Bridgeless / Fabric / TurboModules).
 - Expo SDK ≥ 53.
-- Android API 24+; **iOS 15.1+** (the bundled `AmplyReactNative.podspec` declares `platforms = { :ios => '15.1' }` and depends on the matching native `AmplySDK` release — `~> 0.10.1` when the npm package is `0.10.1`). Older RN-SDK READMEs say iOS 13.0+; the package actually fails `pod install` below 15.1. Verify against the podspec of the version you pin.
+- Android API 24+; **iOS 15.1+** (the bundled `AmplyReactNative.podspec` declares `platforms = { :ios => '15.1' }` and depends on the matching native `AmplySDK` release — `~> 0.12.0` when the npm package is `0.12.1`). Older RN-SDK READMEs say iOS 13.0+; the package actually fails `pod install` below 15.1. Verify against the podspec of the version you pin.
 
 ## Common mistakes (rewrite on sight)
 

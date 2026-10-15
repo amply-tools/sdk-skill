@@ -60,7 +60,7 @@ For each detected property-write call:
 
 5. Key is a one-shot write of a baseline-mutable property?
    - Baseline mutable list (see custom-properties.md): subscription_status,
-     subscription_plan, trial_ends_at, last_paywall_view_at, total_purchases,
+     subscription_plan, trial_ends_at, total_purchases,
      paywall_view_count, onboarding_completed, notifications_enabled,
      att_status, plan, is_premium, ...
    - If the key is in the mutable baseline AND only written at one location

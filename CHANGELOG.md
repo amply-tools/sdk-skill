@@ -2,6 +2,25 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] — Unreleased
+
+### Fixed
+- **React Native needs `apiKeySecret` too** (`SKILL.md` Phase 1b / Phase 5 / Common mistakes, `references/sdk-cheatsheet-rn.md`). The skill said the secret was optional and unused on RN. Since RN SDK 0.12.1 `initialize` rejects a config with any key missing and Amply does not start (earlier versions crashed in the native config builder). Integrations that followed the old text shipped without Amply.
+- **"Hasn't done X for N days" is a built-in event condition, not a property** (`SKILL.md` Phase 0.5 / Phase 3, `references/who-when-what-audit.md`, `references/custom-properties.md`, `references/property-writes.md`). The baseline catalogue proposed `last_paywall_view_at` and the reactivation recipe prescribed a `last_session_at` property, which taught agents to ask for app changes the SDK already covers. New *Recency recipes* table maps common asks to `first/last happened` conditions, including "…or never".
+- **The trigger-event trap is documented.** The triggering occurrence is recorded before the audience is evaluated, so "last happened more than N days ago" on the trigger event never matches and counts include the current occurrence.
+- **Install Date / App Install Version are when Amply first ran on the device**, not the app install — for an app that added Amply later, "installed more than 30 days ago" matches nobody for 30 days. The catalogue's `install_date` / `app_version_at_install` rows now say when an app-set copy is still worth it.
+- **No OR in targeting**: the RateReview recipe's "… OR `nps_score >= 9`" was not expressible; the recipes no longer use `AppOpened` (which the skill elsewhere tells agents to drop in favour of `SessionStarted`).
+- **MCP reference matches the live tools** (`references/amply-mcp.md`, `references/system-events.md`): `campaign_get` output can be carried straight back into `campaign_update`; `triggering.limit` is omitted for no limit; trigger parameter filters work over MCP, so the `CustomPropertyChanged` recipe no longer sends agents to the admin; relative `install_date` `greater` means older.
+
+### Added
+- **Mini-app action** (`SKILL.md`, `references/who-when-what-audit.md`, `references/amply-mcp.md`). The skill said Amply draws no UI and has two actions; there are three. A Mini-app is a sheet, card, full screen or story built in Amply Studio and drawn by the SDK (0.12.0+), with button actions (record event, open deep link, request review, save answers as properties, navigate, close). The MCP attaches a published Studio document but cannot author one.
+- **Campaign history condition** (seen / first seen / last seen another campaign) in Who.
+- **Campaign-design triggers** in the description ("design a campaign", "campaign targeting", "who should see it", Russian equivalents) and a *Designing a condition* checklist: event history first, a Custom Property only for state events can't carry, a missing property makes a condition false.
+- `CampaignResolved` in the system-events table; `campaign_statistics` semantics in the MCP table.
+
+### Changed
+- **Install pins bumped to 0.12.0** (native) **and ^0.12.1** (RN); capability floors: 0.6.1 event history, 0.12.0 Mini-apps.
+
 ## [0.12.0] — 2026-07-30
 
 ### Changed

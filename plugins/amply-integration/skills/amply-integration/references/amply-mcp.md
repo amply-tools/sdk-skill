@@ -69,11 +69,11 @@ Names are `snake_case`. Only the connection check keeps the `amply_` prefix.
 | `campaigns_list` | `project_id`, optional `search`, `limit` 1–100. |
 | `campaign_get` | The campaign as stored. |
 | `campaign_create` | Always a **draft**. See the payload traps below. |
-| `campaign_update` | **Full replace**, not a patch — omitted fields are cleared, and the campaign returns to Draft. Takes `snake_case`, unlike what `campaign_get` returns. |
+| `campaign_update` | **Full replace**, not a patch — omitted fields are cleared, and the campaign returns to Draft. Carry `campaign_get`'s output back (rename `id` → `campaign_id`, drop `state`). |
 | `campaign_activate` | Publishes a draft. Refused at the plan's active-campaign limit. |
 | `campaign_stop` | Stops a live campaign. Cannot return it to draft — neither can the admin. |
 | `statistics_active_users` | Daily or monthly, per project, range ≤ 366 days. |
-| `campaign_statistics` | Impressions and resolutions for one campaign. |
+| `campaign_statistics` | Daily impressions and resolved outcomes for one campaign. A day with no row is a day nothing was recorded (not zero); today's row is still counting. The admin's Statistics tab shows impressions only. |
 | `price_*` (16 tools) | Price management. Needs that plan feature; the price-index tools need it as a separate addition. Each starts from an `application_id` the MCP cannot look up. |
 
 Tool visibility follows the permissions the user granted, not their plan — price tools appear even
@@ -86,7 +86,7 @@ Each of these produces a confusing error rather than a clear one.
 * Keys are **`snake_case`**: `project_id`, `app_version`, `repeat_type`, `compare_type`. Unknown
   keys are **refused**, not ignored, so a camelCase key is a hard error.
 * Operators are `snake_case` too: `greater_or_equal`, `not_equal`, `is_set`.
-* `triggering.limit` is **required** even with no limit — pass `"limit": {}`.
+* `triggering.limit`: **omit it** for a campaign with no limit (that is the admin's default). `count` is the total cap per device, `interval` + `interval_dimension` the minimum gap between impressions, `limit` + `limit_type` the per-session or per-device frequency cap.
 * `limit`/`limit_type` and `interval`/`interval_dimension` are **pairs**; half a pair is rejected.
 * Targeting is a **flat list of conditions, all of which must match** — not OR-ed groups. Two
   `country` conditions therefore match nobody. Express a range as two conditions
@@ -97,11 +97,18 @@ Each of these produces a confusing error rather than a clear one.
   and then silently discarded, which made a `CustomPropertyChanged` campaign fire on every
   property the app reported. If you are talking to an older server, check that a filter you sent
   comes back from `campaign_get`.)
-* `campaign_get` returns **camelCase** where the write tools take **snake_case**, so a
-  read-modify-write round trip still needs hand translation — `compare_type` comes back as
-  `compareType`. `campaign_update` says the same thing in its own description.
-* `campaign_update` **replaces the campaign in full** and returns it to Draft. There is no clone
-  and no delete, so a campaign created by mistake has to be removed by hand in the admin.
+* `campaign_get` returns the campaign spelled the way `campaign_update` takes it (`snake_case`):
+  to edit, send its `id` as `campaign_id`, drop `state`, and carry every other field back.
+* `campaign_update` **replaces the campaign in full** and returns it to Draft — on a live campaign
+  that takes it off air until someone activates it again. There is no clone and no delete, so a
+  campaign created by mistake has to be removed by hand in the admin.
+* `type: "miniApp"` needs `content.documentId` + `content.versionId` of a document already
+  **published in Amply Studio** for that project. The MCP cannot list, author or publish Studio
+  documents — the screen is built in the admin; the MCP only attaches it. Mini-app campaigns match
+  devices on Amply SDK 0.12.0+ only.
+* `install_date` in **relative** mode compares the install's *age*: `greater` 30 days = installed
+  more than 30 days ago (the tool description's "greater means more recently" holds only for
+  absolute dates). Install date is the first time Amply ran on the device, not the app install.
 
 The server publishes a **campaign targeting reference** as an MCP resource
 (`amply://campaign/targeting-reference`), with worked examples. Read that rather than guessing the

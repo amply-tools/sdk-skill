@@ -40,6 +40,7 @@ nothing on devices. `campaign_update` returns the campaign to Draft, so it needs
 
 | The ask | Surface | Why |
 |---|---|---|
+| "A screen", "экран", a settings or plan page | **fullscreen** | Say *screen* and the user means the whole screen; reach for a sheet only when they say sheet, popup, "шторка" or "снизу". |
 | One offer, one question, one announcement | **sheet** | Rises over the app, the app stays visible behind it; dismissable. Sizes to its content. |
 | A yes/no moment — rate us, confirm, a short notice | **card** (centred) | Smallest interruption; reads as a dialog. |
 | Several beats told in sequence — release highlights, a feature tour, a promo | **story** | Consecutive story screens play as one story with progress bars, auto-advance, tap to step, ✕ to close. |
@@ -54,9 +55,11 @@ sheet grows into the screen).
 The defaults already follow the app-style starters (pill buttons, the type ramp, safe areas, a close
 affordance). What still decides the result:
 
-- **Brand colour first.** Set `colors.primary` (and `on_primary` if the brand colour is light) to
-  the app's brand. Every button and accent follows. Prefer palette tokens (`@primary`,
-  `@onSurfaceVariant`, …) over raw hex so light and dark mode both work.
+- **Brand colour first.** Set `colors.primary` to the app's brand; every button and accent follows,
+  and the text on it is picked for contrast unless you set `onPrimary` yourself. A single value is
+  used in **both** themes — give `{ "light": …, "dark": … }` for anything that should follow dark
+  mode (backgrounds especially), and prefer palette tokens (`@primary`, `@onSurfaceVariant`, …) over
+  raw hex in components.
 - **One primary action, last.** The filled button is the last element. A secondary choice goes
   directly above it as a toned button (`background: "@surfaceVariant"`, `text_color: "@onSurface"`)
   or as a plain text link — never two filled buttons.
@@ -75,6 +78,22 @@ affordance). What still decides the result:
   `height`. A plain web URL is refused: it would not load on the device.
 - **Languages:** declare `languages` and give each text as `{ "en": "…", "de": "…" }`. The device
   picks its locale and falls back to the primary language.
+
+## What a mini-app cannot do
+
+Plan around these up front instead of discovering them mid-build — and tell the user which one
+their request runs into, with the workaround you chose:
+
+- **No input validation or required fields.** A button always runs its actions. When a value must
+  exist, use a choice or a slider (always has a value), or hand off to a native screen with
+  `open_link`.
+- **Events carry fixed parameters.** `track_event` cannot include what the user typed or picked;
+  `save_answers` is how answers reach the device (as Custom Properties).
+- **No "set property" on a tap.** To record a choice made by tapping, use a `choice` +
+  `save_answers`, or put the value in a `track_event` parameter on that button.
+- **A text cannot show an earlier answer.** One confirmation screen per option is the workaround
+  for "show them what they picked".
+- **No conditions.** Every user sees the same screens; branching is navigation chosen by the user.
 
 ## Buttons and actions
 

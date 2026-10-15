@@ -2,7 +2,7 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0] — Unreleased
+## [0.13.0] — 2026-10-15
 
 ### Fixed
 - **React Native needs `apiKeySecret` too** (`SKILL.md` Phase 1b / Phase 5 / Common mistakes, `references/sdk-cheatsheet-rn.md`). The skill said the secret was optional and unused on RN. Since RN SDK 0.12.1 `initialize` rejects a config with any key missing and Amply does not start (earlier versions crashed in the native config builder). Integrations that followed the old text shipped without Amply.

@@ -2,6 +2,11 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] — 2026-10-15
+
+### Fixed
+- **The skill installs again with `npx skills add`.** 0.13.0's description contained a colon followed by a space, which strict YAML parsers read as a nested mapping; the `skills` CLI skipped the file and reported "No valid skills found". The description is unchanged apart from that punctuation.
+
 ## [0.13.0] — 2026-10-15
 
 ### Fixed

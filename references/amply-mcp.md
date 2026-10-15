@@ -33,8 +33,9 @@ connection and the approval both.
 
 Read this before planning a phase around it — the gaps decide the shape of the work.
 
-**Can:** read projects; list, read, create, activate and stop campaigns; read active-user and
-per-campaign analytics; manage product prices, price batches and custom price indexes.
+**Can:** read projects; list, read, create, activate and stop campaigns; build, edit and publish
+**Mini-apps** (sheets, cards, full screens, stories — see `references/mini-app-authoring.md`); read
+active-user and per-campaign analytics; manage product prices, price batches and custom price indexes.
 
 **Can, but only on some connections — check the tool list:** register a project or an application
 and read or mint its API keys. Provisioning is newer than the campaign tools, needs the
@@ -73,6 +74,12 @@ Names are `snake_case`. Only the connection check keeps the `amply_` prefix.
 | `campaign_activate` | Publishes a draft. Refused at the plan's active-campaign limit. |
 | `campaign_stop` | Stops a live campaign. Cannot return it to draft — neither can the admin. |
 | `statistics_active_users` | Daily or monthly, per project, range ≤ 366 days. |
+| `mini_app_list` | The project's mini-apps with their latest published version. |
+| `mini_app_get` | One mini-app as an editable spec (every node carries its `id`), its version, published versions, and `editor_url` to open it in Amply Studio. |
+| `mini_app_create` | Builds a mini-app from a spec. Refuses an invalid spec with every problem listed by path. Returns `warnings` and `editor_url`. Read `amply://mini-app/authoring-reference` first. |
+| `mini_app_update` | Patches by `id` (sent properties set, `null` removes, omitted keep). Needs the `expected_version` you read — refused if the mini-app changed since. |
+| `mini_app_publish` | Freezes the draft into a version and returns `campaign_content` for `campaign_create` / `campaign_update`. Idempotent for an unchanged draft. Reaches no device by itself. |
+| `mini_app_image_import` | Copies an https image (png/jpeg/webp/gif) into the project and returns the image source to use in a spec. SVG goes inline instead. |
 | `campaign_statistics` | Daily impressions and resolved outcomes for one campaign. A day with no row is a day nothing was recorded (not zero); today's row is still counting. The admin's Statistics tab shows impressions only. |
 | `price_*` (16 tools) | Price management. Needs that plan feature; the price-index tools need it as a separate addition. Each starts from an `application_id` the MCP cannot look up. |
 
@@ -102,10 +109,10 @@ Each of these produces a confusing error rather than a clear one.
 * `campaign_update` **replaces the campaign in full** and returns it to Draft — on a live campaign
   that takes it off air until someone activates it again. There is no clone and no delete, so a
   campaign created by mistake has to be removed by hand in the admin.
-* `type: "miniApp"` needs `content.documentId` + `content.versionId` of a document already
-  **published in Amply Studio** for that project. The MCP cannot list, author or publish Studio
-  documents — the screen is built in the admin; the MCP only attaches it. Mini-app campaigns match
-  devices on Amply SDK 0.12.0+ only.
+* `type: "miniApp"` needs `content` = `{documentId, versionId}` of a **published** mini-app of the
+  same project — exactly the `campaign_content` that `mini_app_publish` returns. A campaign keeps the
+  version it was given: after editing and re-publishing, `campaign_update` it with the new content.
+  Mini-app campaigns match devices on Amply SDK 0.12.0+ only.
 * A Deeplink `content.url` may carry **template variables** — `{@campaign.id}`, `{@custom.<key>}`, `{@device.platform}`, `{@triggeredEvent.params.<name>}` (full list in `deeplink-wiring.md`). An unknown variable, or one in the scheme or host, is **refused** with the token named; a campaign that uses them only reaches devices on Amply SDK 0.13.0+.
 * `install_date` in **relative** mode compares the install's *age*: `greater` 30 days = installed
   more than 30 days ago (the tool description's "greater means more recently" holds only for

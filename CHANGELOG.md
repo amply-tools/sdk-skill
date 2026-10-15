@@ -2,6 +2,15 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] — Unreleased
+
+### Added
+- **Build Mini-apps over MCP** (`references/mini-app-authoring.md`, new). With the Amply MCP connected, an agent builds a bottom sheet, card, story or full-screen flow from a plain description (`mini_app_create`), edits it by id (`mini_app_update`), publishes it (`mini_app_publish`) and attaches it to a draft campaign — no admin round trip. The page covers the pipeline, which surface fits which ask, what makes the result look like the app, action order, editing a mini-app built by hand, and the traps (a campaign keeps the version it was given). The exact vocabulary stays on the server (`amply://mini-app/authoring-reference`).
+- Mini-app tools in the MCP table (`references/amply-mcp.md`), a Phase 8 path for a Mini-app What, and build-a-mini-app triggers in the description ("make a bottom sheet", "сделай шторку", "сделай сторис", …).
+
+### Changed
+- `type: "miniApp"` campaigns take `content` straight from `mini_app_publish`; the "the MCP cannot author or publish a Studio document" caveat is gone from `amply-mcp.md` and `who-when-what-audit.md`.
+
 ## [0.13.2] — 2026-10-16
 
 ### Added

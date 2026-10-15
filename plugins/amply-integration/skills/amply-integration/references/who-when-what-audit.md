@@ -15,7 +15,14 @@ Amply matches users with a combination of:
 **Event-history caveats for the audit:**
 
 - Only apps running **Amply SDK 0.6.1+** match event conditions — devices on older SDK builds simply don't match those campaigns. For fleets with older installed builds, counter Custom Properties remain the fallback (see `custom-properties.md` § Counter properties).
-- History starts at install — events fired before the app shipped with the Amply SDK don't exist. Evaluation happens on-device and works offline.
+- History starts the first time the Amply SDK ran **on that device** — for a new install that is the install, for an app that adds Amply later it is the update that shipped the SDK. Events fired earlier don't exist, and history is per device: an action the same person took on another phone is not visible. Evaluation happens on-device and works offline.
+- **Install Date has the same origin.** It is when Amply first ran on the device, not when the app was installed. For an app that added Amply recently, "installed more than 30 days ago" matches nobody until 30 days after that update — pick the threshold with that in mind.
+
+**Designing a condition — check in this order before proposing app changes:**
+
+1. **Can event history express it?** "Hasn't done X for N days" is `last occurrence` → `more than N days ago` (add "…or never" if people who never did X belong in the audience). "Did X at least N times" is a count. Narrow both with event property filters — every filter must match (AND) — so `kind = weight` or `action = created` keeps unrelated or corrected records out. Prefer this to a new Custom Property: it needs no app change.
+2. **Use a Custom Property only for state that events can't carry** — something that existed before the SDK did, happened on another device, or is a current fact rather than a history (household size, plan, a date that lives in the app's own database). Report facts about the app, not answers computed for one campaign.
+3. **A condition on a property the device hasn't set is false, not zero.** `circle_size = 0` does not match a device that never reported `circle_size`. Use this deliberately: a campaign keyed on a new property stays silent on older builds until they update. Use `is not set` when "never reported" should match.
 
 **Not available as built-in targeting:**
 

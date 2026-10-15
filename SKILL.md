@@ -1,6 +1,6 @@
 ---
 name: amply-integration
-description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties".
+description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model — and when designing or configuring an Amply campaign for an app that already has the SDK: who should see it, when, and what the targeting conditions are. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties", "design a campaign", "set up a campaign", "campaign targeting", "who should see it", "настроить кампанию", "придумать кампанию", "таргетинг", "кому показать".
 ---
 
 # Amply Integration
@@ -28,6 +28,7 @@ This skill walks the user through an opinionated, end-to-end integration:
 - The user says "integrate Amply" / "add the Amply SDK" / mentions `@amplytools/react-native-amply-sdk`, `tools.amply:sdk-android`, `tools.amply:sdk-kmp`, or `AmplySDK` (Swift).
 - The user wants Amply campaigns, deeplinks, or Custom Properties wired up.
 - The user wants a product-analytics audit oriented toward Amply targeting.
+- The SDK is already integrated and the user wants to **design or configure a campaign** (who sees it, when, what it does). Skip the integration phases and go straight to `references/who-when-what-audit.md` — start from its *Designing a condition* rules before proposing any new Custom Property or app change.
 
 **Don't use for:** debugging Amply backend issues, building marketing copy about Amply, or generic mobile analytics work that has nothing to do with Amply.
 

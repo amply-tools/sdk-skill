@@ -67,11 +67,16 @@ affordance). What still decides the result:
   `close` action) or a *Not now* link. Stories draw their own ✕.
 - **Sheets and cards size to their content** — nothing in them may grow (`scroll`, an unsized
   `spacer`). The server refuses that, because on a device it collapses to nothing.
-- **Full screens pin the call to action** by putting the content in a `scroll` and the buttons after
-  it: the scroll takes the free space, the buttons sit on the bottom edge, long copy scrolls instead
-  of pushing them off-screen.
-- **Short copy.** A headline (`title1`) and one or two lines of body (`body`, secondary colour). On
-  stories, white copy over a backdrop; keep it to the lower third.
+- **Full screens pin the call to action in `footer`.** Put the buttons in the screen's `footer` and the
+  content in `children`: the content scrolls under the buttons and fades out just above them, the
+  buttons stay on the bottom edge. Don't build that by hand with a scroll and buttons after it — that
+  cuts the content with a hard line over a solid block, and the server warns about it.
+- **Follow the server's design rules.** The authoring reference has a *Design rules* section — the
+  spacing scale, which font each surface takes, alignment, one dominant action, card treatment,
+  illustration style, the story reading zone. Read it before the first build; the warnings that
+  come back from it (an oversized headline, a link too small to tap) are worth fixing, not ignoring.
+- **Short copy.** A headline and one or two lines of body (`body`, secondary colour). On stories,
+  white copy over a calm part of the backdrop; keep it to the lower third.
 - **Images:** draw icons and illustrations as inline SVG (the server checks it — shapes, paths,
   gradients; no scripts, no external references, no CSS `style`). For a photo or a logo file, import
   it with `mini_app_image_import` (https URL) and use the returned source. Give every image a

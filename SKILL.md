@@ -286,6 +286,13 @@ Initialise Amply in the right place using **the platform-correct API** (see SDK 
 - iOS: `let amply = Amply(config: AmplyConfig(appId:, apiKeyPublic:, apiKeySecret:, defaultConfig: nil))` — **`apiKeySecret` is required**; strong reference held by app.
 - Android: `val amply = Amply(config = AmplyConfig(appId, apiKeyPublic, apiKeySecret, defaultConfig = null), application = this)` — **`apiKeySecret` is required**; held on `Application`. Or use the `amplyConfig { api { ... } }` builder DSL.
 
+**App language (SDK 0.14.0+).** If the app picks its language itself — an in-app language switcher, or translations in JavaScript (i18next, react-intl, expo-localization + own strings) — tell Amply the language so sheets, stories and mini-apps show the matching translation and the **App language** targeting rule works:
+
+- RN/Expo: `Amply.setAppLanguage(i18n.language)` after init, plus `i18n.on('languageChanged', (lng) => Amply.setAppLanguage(lng))`; or `appLanguage` in `initialize({...})`.
+- iOS: `amply.setAppLanguage(tag: currentLanguage)` / `AmplyConfig.appLanguage`. Android/KMP: `amply.setAppLanguage(currentLanguage)` / `appLanguage` in `AmplyConfig`.
+
+Pass the library's value as-is (`fr`, `pt-BR`, `pt_BR`, `zh-Hant` all work). Skip it for single-language apps and for native apps that rely only on the system per-app language setting — Amply detects those.
+
 Pull keys from env / build config. **Refuse** to write keys inline — even if the project's own precedent hard-codes other vendors' keys (RevenueCat / Amplitude / etc.) inline. For projects with no existing env-loading pipeline, do one of: (a) suggest adding `react-native-config` / `EXPO_PUBLIC_*` / `BuildConfig` field, and write the Amply call against it with a clear TODO at the call-site; (b) document the choice prominently in the audit and let the user wire env loading on their own next pass. Never silently inline an Amply key just because the project does it elsewhere — `apiKeySecret` in particular must be treated as a real secret.
 
 **Source of the keys:** by the time Phase 5 runs, Phase 1b has already collected the `amplyApps` entries from the Amply admin. Use them as-is — the right entry for the platform being wired, and the secret only where the platform requires it. Never re-derive or guess them here, and never commit them: they belong in the project's ignored env file.
@@ -413,6 +420,7 @@ Run this **only** on a successful finish **and** only if `feedbackConsent == yes
 | Adding a `last_x_at` / `x_count` Custom Property for "hasn't done X in N days" / "did X N times". | Use the built-in event conditions (`last happened not in the last N days`, counts) — the SDK already records the history. Properties only for state events can't carry. |
 | Putting "last happened more than N days ago" on the **same** event as the trigger. | The trigger occurrence is recorded first, so it always reads "just now". Put the recency on a different event (e.g. trigger `SessionStarted`, condition on `SessionFinished` or the core value event). |
 | Writing an audience with OR. | Targeting is AND-only. Split into two campaigns. |
+| An app with its own language switcher / JS translations never calls `setAppLanguage`. | Amply then uses the language iOS/Android chose for the app (or the device language), so sheets show in the wrong language. Wire `setAppLanguage` to the i18n library's change event (SDK 0.14.0+). |
 | Assuming Install Date is the app install date. | It is when Amply first ran on the device. For an app that added Amply recently, "installed more than 30 days ago" matches nobody for 30 days. |
 
 ## Feedback

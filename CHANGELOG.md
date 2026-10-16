@@ -2,6 +2,11 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **App language** (`SKILL.md` Phase 5, platform cheatsheets, *Common mistakes*). Apps that pick their language themselves (in-app switcher, i18next / JS translations) call `setAppLanguage(tag)` — RN `Amply.setAppLanguage(i18n.language)` wired to `languageChanged`, native `setAppLanguage(tag:)` / `appLanguage` in `AmplyConfig` — so sheets, stories and mini-apps show the matching translation and the **App language** targeting rule works (Amply SDK 0.14.0+). Any tag form works (`pt-BR`, `pt_BR`, `zh-Hant`).
+
 ## [0.14.0] — 2026-10-16
 
 ### Added

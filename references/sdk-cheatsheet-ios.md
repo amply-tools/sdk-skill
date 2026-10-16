@@ -271,6 +271,7 @@ timeout, with nothing on screen.
 | Construct | `Amply(config: AmplyConfig)` — returns instance |
 | `track` | `func track(event: String, properties: [String: Any])` |
 | `setUserId` | `func setUserId(userId: String?)` — the `userId:` label is required (Kotlin `fun setUserId(userId: String?)` imports unchanged) |
+| `setAppLanguage` | `func setAppLanguage(tag: String?)` — SDK 0.14.0+; the `tag:` label is required. The language the app shows, any form (`pt-BR`, `pt_BR`, `zh-Hant`); `nil` = automatic. Config: `AmplyConfig.appLanguage`. |
 | `setCustomProperty` | `func setCustomProperty(key: String, value: Any)` |
 | `setCustomProperties` | `func setCustomProperties(properties: [String: Any])` |
 | `getCustomProperty` | `func getCustomProperty(key: String) async -> Any?` |

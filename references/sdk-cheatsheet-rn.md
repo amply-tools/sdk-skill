@@ -166,6 +166,7 @@ Notably, **`@custom` is not in the published RN union** even though it exists in
 | `Amply.track({ name, properties? })` | **Object payload.** The canonical form — write this in new code. |
 | `Amply.trackEvent(event, properties?)` | Positional alias of `track`; identical behaviour, mirrors the shape of `trackGated`. Both ship and neither is deprecated — if existing code already calls it, leave it alone rather than rewriting to `track`. |
 | `Amply.setUserId(id \| null)` | |
+| `Amply.setAppLanguage(tag \| null)` | SDK 0.14.0+. The language the app shows (`i18n.language`); any form (`pt-BR`, `pt_BR`, `zh-Hant`). `null` = automatic. Also `appLanguage` in `initialize`. |
 | `Amply.setCustomProperty(key, value)` / `setCustomProperties(map)` | Values: `string \| number \| boolean`. |
 | `Amply.getCustomProperty(key)` | Async. |
 | `Amply.removeCustomProperty(key)` / `clearCustomProperties()` | |

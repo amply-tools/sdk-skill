@@ -199,6 +199,7 @@ timeout, with nothing on screen.
 | Construct | `Amply(config: AmplyConfig, application: Application)` | |
 | `track` | `fun track(event: String, properties: Map<String, Any> = emptyMap())` | |
 | `setUserId` | `fun setUserId(userId: String?)` | |
+| `setAppLanguage` | `fun setAppLanguage(tag: String?)` — SDK 0.14.0+. The language the app shows, any form (`pt-BR`, `pt_BR`, `zh-Hant`); `null` = automatic. Config: `appLanguage` in `AmplyConfig`. |
 | `setCustomProperty` | `fun setCustomProperty(key: String, value: Any)` | Property keys: max 255 chars (Kotlin SDK). For cross-platform safety with RN clients, prefer ≤32. |
 | `setCustomProperties` | `fun setCustomProperties(properties: Map<String, Any>)` | Batch — preferred over a `forEach { setCustomProperty(...) }` loop. |
 | `getCustomProperty` | `suspend fun getCustomProperty(key: String): Any?` | Suspend; returns `null` when key is not set. |

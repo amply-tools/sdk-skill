@@ -220,6 +220,7 @@ timeout.
 | `registerGate` | `fun registerGate(...): ListenerToken` | Call from platform startup, not commonMain. Returns the token that withdraws it. |
 | `unregisterGate` | `fun unregisterGate(token: ListenerToken)` | |
 | `setUserId` | `fun setUserId(userId: String?)` | |
+| `setAppLanguage` | `fun setAppLanguage(tag: String?)` — SDK 0.14.0+. The language the app shows, any form (`pt-BR`, `pt_BR`, `zh-Hant`); `null` = automatic. Config: `appLanguage` in `AmplyConfig`. |
 | `setCustomProperty` | `fun setCustomProperty(key: String, value: Any)` | |
 | `setCustomProperties` | `fun setCustomProperties(properties: Map<String, Any>)` | |
 | `getCustomProperty` | `suspend fun getCustomProperty(key: String): Any?` | |

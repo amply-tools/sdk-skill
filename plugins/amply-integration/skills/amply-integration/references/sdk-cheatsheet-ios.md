@@ -9,7 +9,7 @@ The iOS SDK is constructed instance-style — `Amply(config:)` — and the host 
 In Xcode → File → Add Packages → enter the public repo URL. In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/amply-tools/amply-sdk-ios.git", from: "0.12.0"),
+.package(url: "https://github.com/amply-tools/amply-sdk-ios.git", from: "0.13.0"),
 ```
 
 Then add `AmplySDK` to the target's `dependencies`.
@@ -17,12 +17,12 @@ Then add `AmplySDK` to the target's `dependencies`.
 ## Install — CocoaPods
 
 ```ruby
-pod 'AmplySDK', '~> 0.12.0'
+pod 'AmplySDK', '~> 0.13.0'
 ```
 
 Then `pod install`.
 
-**Pin `0.12.0` or later** (both managers; Mini-app campaigns need 0.12.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
+**Pin `0.13.0` or later** (both managers; Mini-app campaigns need 0.12.0, template variables in campaign links 0.13.0; the 0.13.0 pod declares iOS 15.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
 
 ## Upgrading the SDK version — resolve, verify, rebuild, re-ship
 
@@ -328,7 +328,7 @@ if case .proceed = decision {
 
 ## Requirements
 
-- iOS 14.1+ (KMP samples). Bumping deployment target to 14.1 is the safe minimum.
+- iOS 15.0+ for the CocoaPods spec from 0.13.0 (current Xcode builds nothing older); Swift Package Manager still declares iOS 14.
 - Xcode 15+.
 
 ## Common mistakes (rewrite on sight)

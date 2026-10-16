@@ -256,7 +256,7 @@ For each candidate campaign, walk Amply's campaign model — see `references/who
 
 - **Who** — list device properties (country, OS / app version, install date — the first time Amply ran on the device), Custom Properties, event-history conditions (Amply SDK 0.6.1+ — event counts, first/last-occurrence dates, event property filters) and campaign history (seen / last seen another campaign) needed; mark which are populated vs missing (for event conditions: does the app actually fire the event?). All conditions are AND — there is no OR.
 - **When** — list triggering event(s); flag whether **Event Param** rules are needed (e.g. `Purchase` filtered by `currency = "USD"`); record required keys/types. Note Repeat Rules and Frequency Limits required.
-- **What** — `Mini-app` (Amply Studio screen drawn by the SDK, 0.12.0+), `Deeplink`, or `RateReview`. Reject push notifications, email/SMS and other cross-channel sends — Amply is in-app only.
+- **What** — `Mini-app` (Amply Studio screen drawn by the SDK, 0.12.0+), `Deeplink`, or `RateReview`. Reject push notifications, email/SMS and other cross-channel sends — Amply is in-app only. A Deeplink (and a Mini-app's *open deep link* button) can carry **template variables** the SDK fills in on the device — `{@campaign.id}`, `{@custom.pet_name}` and so on, Amply SDK 0.13.0+ — so "which campaign sent this user" or a property value reaches the app's router without app code (`references/deeplink-wiring.md` → *Template variables*).
 
 Save findings as `amply-audit.md` (template: `references/audit-template.md`). This is a **suggestion document**, not a prescription.
 

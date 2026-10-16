@@ -6,6 +6,26 @@ The Amply server delivers **Deeplink** actions to your registered listener. The 
 2. **Hold a strong reference** — the SDK does not retain listeners on iOS / Android.
 3. **Return `true` only when handled** — `false` lets other listeners or the OS-level handler try.
 
+## Template variables in the campaign link (Amply SDK 0.13.0+)
+
+The link a campaign sends can carry values the SDK fills in on the device, just before your listener receives it. Write a token where the value goes:
+
+| Token | Value |
+|---|---|
+| `{@campaign.id}` · `{@campaign.name}` · `{@campaign.type}` | the campaign that fired (`deepLink` or `miniApp`) |
+| `{@custom.<key>}` | a Custom Property the app set, e.g. `{@custom.pet_name}` |
+| `{@device.platform}` · `language` · `locale` · `country` · `deviceType` · `deviceModel` · `store` | the device (no identifiers) |
+| `{@triggeredEvent.name}` · `{@triggeredEvent.params.<name>}` | the event that triggered the campaign and its parameters |
+
+`myapp://log-weight?source=amply_{@campaign.id}` reaches the listener as `myapp://log-weight?source=amply_3f9c…` — the app's own analytics can now tell which campaign brought the user there. Rules worth knowing:
+
+* Values are **percent-encoded** (a space becomes `%20`, `/` becomes `%2F`), so a value always stays one query value or one path segment. Your router decodes it as usual.
+* A token with **no value on this device** becomes empty — `pet={@custom.pet_name}` arrives as `pet=` when the property was never set. Handle the empty case in the router.
+* Tokens go in the **path, query or fragment** — never the scheme or host. Amply refuses to save a link that puts one there, or that names a variable it does not know.
+* `info["url"]` carries the same filled-in link. `info` also still carries `campaignId` / `campaignName` as before.
+* App versions on an SDK **older than 0.13.0 do not receive** a campaign whose link uses variables — the campaign is held back for them rather than delivered with `{@…}` in it. Plan the rollout with that in mind.
+* In the admin and in Amply Studio the link field has a **`{@}` button** that inserts these tokens; over MCP, write them into `content.url` as text.
+
 ## Pattern A — React Navigation, simple single-target
 
 Use when the app has no existing `linking.config` (or the deeplink schemes you'll receive from Amply don't overlap with what's already in `linking.config`).

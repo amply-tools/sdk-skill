@@ -146,5 +146,5 @@ Min OS / SDK versions:     <iOS x.x | Android api xx>
 RN New Architecture:       <yes | no | n/a>
 Existing consent framework: <ATT | UMP | OneTrust | Didomi | custom | none>
 Version gates passed:      <list> | failed: <list>
-Amply SDK pinned:          <version — 0.6.1+ event-history targeting, 0.12.0+ Mini-apps>
+Amply SDK pinned:          <version — 0.6.1+ event-history targeting, 0.12.0+ Mini-apps, 0.13.0+ template variables in links>
 ```

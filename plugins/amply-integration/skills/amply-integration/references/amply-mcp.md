@@ -106,6 +106,7 @@ Each of these produces a confusing error rather than a clear one.
   **published in Amply Studio** for that project. The MCP cannot list, author or publish Studio
   documents — the screen is built in the admin; the MCP only attaches it. Mini-app campaigns match
   devices on Amply SDK 0.12.0+ only.
+* A Deeplink `content.url` may carry **template variables** — `{@campaign.id}`, `{@custom.<key>}`, `{@device.platform}`, `{@triggeredEvent.params.<name>}` (full list in `deeplink-wiring.md`). An unknown variable, or one in the scheme or host, is **refused** with the token named; a campaign that uses them only reaches devices on Amply SDK 0.13.0+.
 * `install_date` in **relative** mode compares the install's *age*: `greater` 30 days = installed
   more than 30 days ago (the tool description's "greater means more recently" holds only for
   absolute dates). Install date is the first time Amply ran on the device, not the app install.

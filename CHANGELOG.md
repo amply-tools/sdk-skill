@@ -2,6 +2,14 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.2] — 2026-10-16
+
+### Added
+- **Template variables in campaign links** (`SKILL.md` Phase 3 What, `references/deeplink-wiring.md`, `references/amply-mcp.md`). A Deeplink — or a Mini-app's open-deep-link button — can carry `{@campaign.id|name|type}`, `{@custom.<key>}`, `{@device.…}` and `{@triggeredEvent.…}`, filled in by the SDK on the device (Amply SDK 0.13.0+; older app versions do not receive such a campaign). Values are percent-encoded, a missing value becomes empty, tokens never go in the scheme or host.
+
+### Changed
+- **Install pins bumped to 0.13.0** (native and RN `^0.13.0`). The 0.13.0 CocoaPods spec declares iOS 15.0 (Xcode 27 no longer builds for 14.0); React Native already required 15.1.
+
 ## [0.13.1] — 2026-10-15
 
 ### Fixed

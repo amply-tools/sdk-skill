@@ -209,6 +209,7 @@ timeout, with nothing on screen.
 | `unregisterGate` | `fun unregisterGate(token: ListenerToken)` | |
 | `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener): ListenerToken` | |
 | `removeDeepLinkListener` | `fun removeDeepLinkListener(token: ListenerToken)` | Takes the **token**, not the listener. |
+| `handleUrl` | `fun handleUrl(url: String): Boolean` — SDK 0.15.0+. | Forward every URL the Activity is opened with (`onCreate` + `onNewIntent`, `ACTION_VIEW` data), before your own routing; `true` = an Amply test link (Test on device), don't route it. See `deeplink-wiring.md`. |
 | `setSystemEventsListener` | `fun setSystemEventsListener(listener: SystemEventsListener): ListenerToken` | |
 | `clearSystemEventsListener` | `fun clearSystemEventsListener(token: ListenerToken)` | One listener per SDK: a second `set` replaces the first — extend the existing one. |
 | `getLastCampaignTouch` | `suspend fun getLastCampaignTouch(withinMs: Long): CampaignTouch?` — SDK 0.15.0+. | Campaign last shown / completed within the window (≤ 30 d): `campaignId`, `campaignName`, `kind` (`SHOWN` / `ENGAGED`), `atMs`. See `campaign-attribution.md`. |

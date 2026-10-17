@@ -173,6 +173,7 @@ Notably, **`@custom` is not in the published RN union** even though it exists in
 | `Amply.trackGated(event, properties?)` | Async. Resolves `{ outcome: 'proceed', reason: 'completed' \| 'failOpen' } \| { outcome: 'cancelled' }`. **Never rejects.** |
 | `Amply.registerGate(baseUrl, presenter, options?)` | Async. `options: { onAbort?: 'cancel' \| 'proceed', timeoutMs?: number }`. Returns `Promise<() => void>` (unregister). `presenter: (params, info, resolution) => void`. |
 | `Amply.addDeepLinkListener(listener)` | Async; returns `unsubscribe`. |
+| `Amply.handleUrl(url)` | SDK 0.15.0+. Synchronous, never throws, safe before `initialize` (a test link is held until init). Forward every incoming URL before your own routing — expo-router: only `app/+native-intent.tsx`; React Navigation: the `linking` config's `getInitialURL` / `subscribe`. `true` = an Amply test link (Test on device), don't route it. See `deeplink-wiring.md`. |
 | `Amply.addSystemEventListener(listener)` / `addSystemEventsListener` / `systemEvents.addListener` | Three aliases for the same async-returns-`unsubscribe` listener. |
 | `Amply.removeAllListeners()` | Unsubscribe all registered deeplink listeners. |
 | `Amply.getRecentEvents(limit)` | Async; returns recent events newest-first. |

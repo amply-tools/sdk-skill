@@ -327,6 +327,8 @@ Use `references/deeplink-wiring.md` for the detected navigation library. Phase 6
 
 `simctl openurl` / `adb am start` only verify 6a — the OS scheme. The Amply listener only fires when the SDK's campaign engine emits a `Deeplink` action via a configured campaign. To verify 6b end-to-end, fire the triggering event from the app and confirm the listener's `onDeepLink` was called (log it in the listener implementation; observe via OSLog on iOS, logcat on Android). **Skipping 6b verification is the #1 way a deeplink integration ships looking healthy but actually broken at runtime.**
 
+**6c — Forward incoming links to Amply (SDK 0.15.0+).** Every link the OS opens the app with goes to `Amply.handleUrl(url)` first, on cold start and while running; if it returns `true` it is an Amply test link — stop, don't route it. This is what makes the admin's **Test on device** QR work. Placement per navigation library: `references/deeplink-wiring.md` → *Forwarding incoming links to Amply* (expo-router: only `app/+native-intent.tsx`). Then ask the developer which scheme the app registers (6a) and tell them to enter it in Amply → Application settings → **Deeplink scheme** (scheme only, no `://`), once per app — iOS and Android are separate apps and may differ. Without it the QR can't open the app.
+
 **Listener placement note.** The listener is global to the app, not per-screen. Register it once at app startup and have it route into the navigator from there. If you attach the deeplink-handling sheet inside a screen view, deeplinks that arrive while the user is on a different screen will fire but the UI won't respond.
 
 ### Phase 7 — Verification handoff
@@ -360,6 +362,7 @@ Run this **once, only after Phase 7 verification passes** (a test event has land
     **`campaign_create` always produces a Draft.** `campaign_update` exists, but it **replaces the campaign in full** and returns it to Draft, and there is still no clone and no delete — so a draft created by mistake has to be removed by hand in the user's campaign list. Get the payload right on the first call: state the intended audience, trigger and goal back to the user in one line before sending it.
     **Bind a goal.** `goals_list` first; `goal_create` what's missing; pass `goals: {primary: {goal_id, window}, secondary: [...]}` on `campaign_create`. Conversions then appear in `campaign_statistics`.
     **When the campaign's What is a Mini-app**, build it over MCP first — `mini_app_create` from a one-line brief the user confirms, show them `editor_url`, `mini_app_publish`, then `campaign_create` with `type: "miniApp"` and the returned `campaign_content`. Pipeline, surface choice and design rules: `references/mini-app-authoring.md`.
+  - **Check it on a real phone before activating.** In the admin, **Test on device** on the campaign page shows it on a phone from a QR, drafts included; over MCP, `campaign_debug_link(campaign_id, check_targeting)` returns the link and per-app deeplinks — an agent with a simulator opens one with `xcrun simctl openurl booted <url>` / `adb shell am start -a android.intent.action.VIEW -d <url>` and screenshots it. Nothing is counted. Needs 6c and the app's Deeplink scheme.
   - If the **MCP is not connected**, point the user to the admin UI (`app.amply.tools`) and build the campaign from the Who/When/What candidates already in the Phase 4 audit (`amply-audit.md`) + `references/who-when-what-audit.md`.
 - **Done** — end the session.
 
@@ -427,6 +430,7 @@ Run this **only** on a successful finish **and** only if `feedbackConsent == yes
 | Writing an audience with OR. | Targeting is AND-only. Split into two campaigns. |
 | An app with its own language switcher / JS translations never calls `setAppLanguage`. | Amply then uses the language iOS/Android chose for the app (or the device language), so sheets show in the wrong language. Wire `setAppLanguage` to the i18n library's change event (SDK 0.14.0+). |
 | Shipping a campaign with no goal. | Its stats then show impressions only, and nobody can tell whether it worked. Bind a primary goal with a window that fits the campaign (Phase 4 → Goal). |
+| Forwarding incoming links to `handleUrl` from two places (e.g. `+native-intent` **and** a `Linking` listener), or not at all. | One forwarder, on cold start and while running (Phase 6c). Without it the Test-on-device QR opens the app and shows nothing. |
 | Registering a second system-events listener on iOS / Android / KMP to forward campaign events. | The SDK keeps one; the new one silently replaces the app's existing listener. Add the forwarding inside the existing one. |
 | Assuming Install Date is the app install date. | It is when Amply first ran on the device. For an app that added Amply recently, "installed more than 30 days ago" matches nobody for 30 days. |
 

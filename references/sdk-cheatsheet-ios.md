@@ -282,6 +282,7 @@ timeout, with nothing on screen.
 | `unregisterGate` | `func unregisterGate(token: ListenerToken)` |
 | `registerDeepLinkListener` | `func registerDeepLinkListener(listener: DeepLinkListener) -> ListenerToken` |
 | `removeDeepLinkListener` | `func removeDeepLinkListener(token: ListenerToken)` — takes the **token**, not the listener. |
+| `handleUrl` | `func handleUrl(url: String) -> Bool` — SDK 0.15.0+. Forward every URL the app is opened with, before your own routing; `true` = an Amply test link (Test on device), don't route it. See `deeplink-wiring.md` → *Forwarding incoming links*. |
 | `setSystemEventsListener` | `func setSystemEventsListener(listener: SystemEventsListener) -> ListenerToken` |
 | `clearSystemEventsListener` | `func clearSystemEventsListener(token: ListenerToken)` — one listener per SDK: a second `set` replaces the first, so extend the existing one. |
 | `getLastCampaignTouch` | `func getLastCampaignTouch(withinMs: Int64) async throws -> CampaignTouch?` — SDK 0.15.0+. Campaign last shown / completed within the window (≤ 30 d): `campaignId`, `campaignName`, `kind` (`.shown` / `.engaged`), `atMs`. See `campaign-attribution.md`. |

@@ -26,6 +26,99 @@ The link a campaign sends can carry values the SDK fills in on the device, just 
 * App versions on an SDK **older than 0.13.0 do not receive** a campaign whose link uses variables — the campaign is held back for them rather than delivered with `{@…}` in it. Plan the rollout with that in mind.
 * In the admin and in Amply Studio the link field has a **`{@}` button** that inserts these tokens; over MCP, write them into `content.url` as text.
 
+## Forwarding incoming links to Amply (Amply SDK 0.15.0+)
+
+Separate from the listener above, and the other direction: links the **OS** opens the app with. Pass every one to `Amply.handleUrl(url)` **before your own routing**. It returns `true` only for an Amply test link (the admin's **Test on device** QR, or the MCP tool `campaign_debug_link`) — then stop, Amply shows the campaign. Every other link returns `false` and goes to your router as before. Forward on **cold start and while running**. Without this the Test-on-device QR opens the app and nothing appears; older SDKs ignore the link.
+
+The test link uses the app's **Deeplink scheme** from Amply → Application settings (scheme only, no `://`). Ask the developer which scheme the app registers (6a) and have them enter it there — once per app; the iOS and Android apps are separate applications and can have different schemes.
+
+Forward from **one place only**. Two forwarders (e.g. `+native-intent` *and* a `Linking` listener) hand the same link over twice — the SDK ignores the repeat, but it is noise and a sign the routing has two owners.
+
+**React Navigation** — filter in the `linking` config, so the navigator never sees a test link:
+
+```ts
+import { Linking } from 'react-native';
+import Amply from '@amplytools/react-native-amply-sdk';
+
+const linking = {
+  prefixes: ['myapp://'],
+  config: { /* your screens */ },
+  async getInitialURL() {
+    const url = await Linking.getInitialURL();
+    return url && Amply.handleUrl(url) ? null : url;   // cold start
+  },
+  subscribe(listener: (url: string) => void) {
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      if (!Amply.handleUrl(url)) listener(url);         // while running
+    });
+    return () => sub.remove();
+  },
+};
+```
+
+On RN `handleUrl` is safe before `initialize`: a test link that arrives first is held and opened once initialization succeeds.
+
+**expo-router** — only in `app/+native-intent.tsx` (it runs for every incoming link, cold start included):
+
+```tsx
+import Amply from '@amplytools/react-native-amply-sdk';
+
+export function redirectSystemPath({ path }: { path: string; initial: boolean }): string {
+  if (Amply.handleUrl(path)) return '/';   // test link: go home, not to the not-found screen
+  return path;
+}
+```
+
+**SwiftUI** — `onOpenURL` covers cold start and running:
+
+```swift
+WindowGroup {
+    NavigationStack(path: $env.path) { RootView() }
+        .onOpenURL { url in
+            if env.amply.handleUrl(url: url.absoluteString) { return }
+            env.route(url)                       // your own routing
+        }
+}
+```
+
+**UIKit** — `SceneDelegate`: `scene(_:willConnectTo:options:)` (cold start, `connectionOptions.urlContexts`) and `scene(_:openURLContexts:)` (running); an app without scenes uses `application(_:open:options:)`:
+
+```swift
+func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
+           options connectionOptions: UIScene.ConnectionOptions) {
+    connectionOptions.urlContexts.forEach { route($0.url) }
+}
+func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    URLContexts.forEach { route($0.url) }
+}
+private func route(_ url: URL) {
+    if amply.handleUrl(url: url.absoluteString) { return }
+    navigator.open(url)
+}
+```
+
+**Compose / Jetpack Navigation (Android)** — the Activity's intent data, in `onCreate` and `onNewIntent`. Create the Amply instance first; a test link that arrives before the session starts (usual in `onCreate`) is held for up to a minute:
+
+```kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    // ... setContent / setContentView ...
+    route(intent)
+}
+
+override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    route(intent)
+}
+
+private fun route(intent: Intent?) {
+    val url = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString ?: return
+    if ((application as MyApp).amply.handleUrl(url)) return
+    navController?.handleDeepLink(intent)       // your own routing
+}
+```
+
 ## Pattern A — React Navigation, simple single-target
 
 Use when the app has no existing `linking.config` (or the deeplink schemes you'll receive from Amply don't overlap with what's already in `linking.config`).

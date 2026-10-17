@@ -35,7 +35,8 @@ Read this before planning a phase around it — the gaps decide the shape of the
 
 **Can:** read projects; list, read, create, activate and stop campaigns; build, edit and publish
 **Mini-apps** (sheets, cards, full screens, stories — see `references/mini-app-authoring.md`); read
-active-user and per-campaign analytics; manage product prices, price batches and custom price indexes.
+active-user and per-campaign analytics; define conversion **goals**, bind them to campaigns and read
+each campaign's conversions; manage product prices, price batches and custom price indexes.
 
 **Can, but only on some connections — check the tool list:** register a project or an application
 and read or mint its API keys. Provisioning is newer than the campaign tools, needs the
@@ -45,6 +46,7 @@ the answer is the same in all of them: fall back to asking the user. Never assum
 
 **Cannot — these need the Amply admin UI:**
 
+* **Archive a goal.** Admin only; `goals_list` hides archived goals, and an archived goal cannot be bound.
 * **Delete or clone a campaign.** Neither has a tool. A draft created by mistake stays in the
   customer's campaign list until someone removes it by hand, so it is still worth getting the
   payload right on the first call rather than iterating.
@@ -68,9 +70,12 @@ Names are `snake_case`. Only the connection check keeps the `amply_` prefix.
 | `api_keys_list` | Needs `apps:write` — it returns live secrets in plaintext, which is why it is not under a read scope. |
 | `api_key_create` | Needs `apps:write` + admin. Mints an **additional** pair; the previous one stays live. |
 | `campaigns_list` | `project_id`, optional `search`, `limit` 1–100. |
-| `campaign_get` | The campaign as stored. |
+| `campaign_get` | The campaign as stored, incl. `goals` and `triggering.delay_ms` (each left out when unset). |
 | `campaign_create` | Always a **draft**. See the payload traps below. |
-| `campaign_update` | **Full replace**, not a patch — omitted fields are cleared, and the campaign returns to Draft. Carry `campaign_get`'s output back (rename `id` → `campaign_id`, drop `state`). |
+| `campaign_update` | **Full replace**, not a patch — omitted fields are cleared (except `goals`), and the campaign returns to Draft. Carry `campaign_get`'s output back (rename `id` → `campaign_id`, drop `state`). |
+| `goals_list` | `project_id`, optional `include_archived`. Each goal: `id`, `name`, `version`, `event`. |
+| `goal_create` | `project_id`, `name`, `event` (`{name, type: custom\|system, params}` — the trigger-event shape, plus `compare_type: "in"` + `values` = one of, ≤ 50). Shows nothing to anyone. |
+| `goal_update` | `goal_id`, `expected_version`, `name`, `event` — all required. Refused if the goal changed since you read it. An event change starts a new version from now; past events are not recomputed. |
 | `campaign_activate` | Publishes a draft. Refused at the plan's active-campaign limit. |
 | `campaign_stop` | Stops a live campaign. Cannot return it to draft — neither can the admin. |
 | `statistics_active_users` | Daily or monthly, per project, range ≤ 366 days. |
@@ -80,7 +85,7 @@ Names are `snake_case`. Only the connection check keeps the `amply_` prefix.
 | `mini_app_update` | Patches by `id` (sent properties set, `null` removes, omitted keep). Needs the `expected_version` you read — refused if the mini-app changed since. |
 | `mini_app_publish` | Freezes the draft into a version and returns `campaign_content` for `campaign_create` / `campaign_update`. Idempotent for an unchanged draft. Reaches no device by itself. |
 | `mini_app_image_import` | Copies an https image (png/jpeg/webp/gif) into the project and returns the image source to use in a spec. SVG goes inline instead. |
-| `campaign_statistics` | Daily impressions and resolved outcomes for one campaign. A day with no row is a day nothing was recorded (not zero); today's row is still counting. The admin's Statistics tab shows impressions only. |
+| `campaign_statistics` | Daily impressions and resolved outcomes for one campaign. A day with no row is a day nothing was recorded (not zero); today's row is still counting. Also `conversions` per bound goal over the last ≤ 90 days of the range (`conversions.range`): `exposed_devices`, `converted_devices`, `rate`, `goal_events`, `median_ms_to_goal`, `split` (`explicit` / `after_engagement` / `after_view`), `still_accruing` (range ends less than a window ago), `explicit_without_touch`, `binding_changed_in_range`. Non-exclusive — never add campaigns up. |
 | `price_*` (16 tools) | Price management. Needs that plan feature; the price-index tools need it as a separate addition. Each starts from an `application_id` the MCP cannot look up. |
 
 Tool visibility follows the permissions the user granted, not their plan — price tools appear even
@@ -95,6 +100,13 @@ Each of these produces a confusing error rather than a clear one.
 * Operators are `snake_case` too: `greater_or_equal`, `not_equal`, `is_set`.
 * `triggering.limit`: **omit it** for a campaign with no limit (that is the admin's default). `count` is the total cap per device, `interval` + `interval_dimension` the minimum gap between impressions, `limit` + `limit_type` the per-session or per-device frequency cap.
 * `limit`/`limit_type` and `interval`/`interval_dimension` are **pairs**; half a pair is rejected.
+* `triggering.delay_ms` — *Show after*: integer 0–3000, multiple of 100 (`1500` = 1.5 s). Omit for
+  immediately. Takes effect on Amply SDK 0.15.0+; older SDKs show immediately.
+* `goals` = `{primary: {goal_id, window}, secondary: [{goal_id, window}, …]}` — ≤ 4 secondary,
+  secondaries need a primary, each goal once, goals of this project and not archived. `window` ∈
+  `30s 1m 5m 15m 1h 6h 24h 3d 7d 30d`, default `24h`. Unlike every other field, **omitting `goals`
+  on `campaign_update` keeps them**; `{}` removes them all. Create the goals first (`goals_list`,
+  then `goal_create` for what's missing).
 * Targeting is a **flat list of conditions, all of which must match** — not OR-ed groups. Two
   `country` conditions therefore match nobody. Express a range as two conditions
   (`app_version >= 1.4.0` and `app_version < 1.5.0`).

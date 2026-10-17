@@ -22,7 +22,7 @@ The link a campaign sends can carry values the SDK fills in on the device, just 
 * Values are **percent-encoded** (a space becomes `%20`, `/` becomes `%2F`), so a value always stays one query value or one path segment. Your router decodes it as usual.
 * A token with **no value on this device** becomes empty — `pet={@custom.pet_name}` arrives as `pet=` when the property was never set. Handle the empty case in the router.
 * Tokens go in the **path, query or fragment** — never the scheme or host. Amply refuses to save a link that puts one there, or that names a variable it does not know.
-* `info["url"]` carries the same filled-in link. `info` also still carries `campaignId` / `campaignName` as before.
+* `info["url"]` carries the same filled-in link. `info` also still carries `campaignId` / `campaignName` as before — carry them to the purchase to credit it (`campaign-attribution.md`).
 * App versions on an SDK **older than 0.13.0 do not receive** a campaign whose link uses variables — the campaign is held back for them rather than delivered with `{@…}` in it. Plan the rollout with that in mind.
 * In the admin and in Amply Studio the link field has a **`{@}` button** that inserts these tokens; over MCP, write them into `content.url` as text.
 

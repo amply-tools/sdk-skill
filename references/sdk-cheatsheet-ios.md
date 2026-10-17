@@ -229,7 +229,7 @@ self.deeplinkRouter = router  // strong ref required
 
 ```swift
 final class SystemListener: SystemEventsListener {
-    func onSystemEvent(/* SDK-defined params */) { /* ... */ }
+    func onEvent(event: EventInterface) { /* event.name, event.properties */ }
 }
 let systemEventsToken = amply.setSystemEventsListener(listener: systemListener)
 ```
@@ -283,7 +283,8 @@ timeout, with nothing on screen.
 | `registerDeepLinkListener` | `func registerDeepLinkListener(listener: DeepLinkListener) -> ListenerToken` |
 | `removeDeepLinkListener` | `func removeDeepLinkListener(token: ListenerToken)` — takes the **token**, not the listener. |
 | `setSystemEventsListener` | `func setSystemEventsListener(listener: SystemEventsListener) -> ListenerToken` |
-| `clearSystemEventsListener` | `func clearSystemEventsListener(token: ListenerToken)` |
+| `clearSystemEventsListener` | `func clearSystemEventsListener(token: ListenerToken)` — one listener per SDK: a second `set` replaces the first, so extend the existing one. |
+| `getLastCampaignTouch` | `func getLastCampaignTouch(withinMs: Int64) async throws -> CampaignTouch?` — SDK 0.15.0+. Campaign last shown / completed within the window (≤ 30 d): `campaignId`, `campaignName`, `kind` (`.shown` / `.engaged`), `atMs`. See `campaign-attribution.md`. |
 | `setLogListener` | `func setLogListener(listener: LogListener) -> ListenerToken` — no longer accepts `nil`. |
 | `clearLogListener` | `func clearLogListener(token: ListenerToken)` |
 | `setLogLevel` | `func setLogLevel(level: String)` |

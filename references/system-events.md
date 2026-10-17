@@ -13,8 +13,8 @@ This matters for the audit: if the project's existing analytics fires its own ve
 | `ConfigFetchFinished` | After remote config fetch | — |
 | `SessionStarted` | At session start | `type: 'cold' \| 'warm'` |
 | `SessionFinished` | At session end | — |
-| `CampaignShown` | When a campaign action fires | `campaignId` |
-| `CampaignResolved` | When a presented action (a Mini-app, a gated action) finishes or is skipped | `campaignId`, `result` (`Completed` / `Dismissed` / `Unavailable` / `SkippedNoPresenter` / `SkippedNoContinuation`), `unavailableReason` when `Unavailable` |
+| `CampaignShown` | When a campaign action fires (with *Show after*: when it actually appears) | `source` (triggering event), `campaignId`, `campaignName` (0.15.0+) |
+| `CampaignResolved` | When a presented action (a Mini-app, a gated action) finishes or is skipped | `campaignId`, `campaignName` (0.15.0+), `result` (`Completed` / `Dismissed` / `Unavailable` / `SkippedNoPresenter` / `SkippedNoContinuation`; *Show after* drops, 0.15.0+: `SkippedPreempted` / `SkippedWhileDelayed` / `SkippedBackgrounded` / `SkippedSessionEnded` / `SkippedNoLongerEligible` / `SkippedCampaignChanged`), `unavailableReason` when `Unavailable` |
 | `EventTriggered` | Meta-event for every `track()` call | mirrors the triggering event's name |
 | `CustomPropertyChanged` | When any Custom Property is set, updated, removed, or cleared (deduplicated — only fires when `oldValue != newValue`) | `key: String`, `oldValue: Any` (omitted on first set), `newValue: Any` (omitted on remove/clear), `timestamp: Long` (epoch millis) |
 

@@ -2,6 +2,18 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] — Unreleased
+
+### Added
+- **Every campaign gets a goal** (`SKILL.md` Phase 0.5 / Phase 4 / Phase 8 / *Common mistakes*, `references/who-when-what-audit.md` → *Goal*, `references/audit-template.md`). A primary goal plus up to 4 secondaries, each with a window — in-app nudges 1–24 h, winback 1–3 d, trial → paid up to 30 d. A property change (entitlement became `true`) is a goal with no purchase event; several SKUs are one goal with the goal-only `one of` operator; a What's New campaign targets "`X` has never happened" so any later `X` is a first use. Goals are computed by Amply from events the app already sends — no SDK floor, no app release. Every use-case recipe now names its goal.
+- **Campaign attribution in the app** (`references/campaign-attribution.md`, new). Put `amply_campaign_id` / `amply_campaign_name` on the purchase event — from the deeplink handler's `info` or `{@campaign.id}` / `{@campaign.name}` in the link, else `getLastCampaignTouch(withinMs)` (**SDK 0.15.0+**) for purchases made elsewhere — and send the same event to Amply and to the app's own analytics. Forward `CampaignShown` / `CampaignResolved` (both carry `campaignName` on **SDK 0.15.0+**) from the app's **existing** system-events listener: on native the SDK keeps one, and a second registration replaces it.
+- **Show after** (`references/who-when-what-audit.md` → *Show after*, `SKILL.md` Phase 4). A 0–3 s pause between the trigger and the show (**SDK 0.15.0+**; older SDKs show immediately), with its rules in one paragraph: re-checked before showing, dropped rather than queued, no impression for a dropped show, ignored by `trackGated`.
+- **MCP** (`references/amply-mcp.md`): `goals_list`, `goal_create`, `goal_update`; `goals` on `campaign_create` / `campaign_update` / `campaign_get` (omitting it on update keeps the goals; `{}` clears them); `conversions` per bound goal in `campaign_statistics` (non-exclusive — never add campaigns up); `triggering.delay_ms` (0–3000, steps of 100).
+- `getLastCampaignTouch` in all four cheatsheets (**SDK 0.15.0+**); `campaignName` and the *Show after* `Skipped*` results in `references/system-events.md` (**SDK 0.15.0+**).
+
+### Fixed
+- **The iOS system-events snippet named a method that does not exist** (`references/sdk-cheatsheet-ios.md`). It showed `onSystemEvent(...)`; the protocol declares `onEvent(event: EventInterface)`.
+
 ## [0.15.0] — 2026-10-16
 
 ### Added

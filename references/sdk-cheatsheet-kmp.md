@@ -227,6 +227,7 @@ timeout.
 | `removeCustomProperty` / `clearCustomProperties` | | |
 | `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener): ListenerToken` | |
 | `removeDeepLinkListener` | `fun removeDeepLinkListener(token: ListenerToken)` | Takes the **token**, not the listener. |
+| `getLastCampaignTouch` | `suspend fun getLastCampaignTouch(withinMs: Long): CampaignTouch?` | SDK 0.15.0+. Campaign last shown / completed within the window (≤ 30 d). See `campaign-attribution.md`. |
 
 ## Gate API (SDK 0.5.0+)
 

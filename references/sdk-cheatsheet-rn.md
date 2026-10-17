@@ -176,6 +176,7 @@ Notably, **`@custom` is not in the published RN union** even though it exists in
 | `Amply.addSystemEventListener(listener)` / `addSystemEventsListener` / `systemEvents.addListener` | Three aliases for the same async-returns-`unsubscribe` listener. |
 | `Amply.removeAllListeners()` | Unsubscribe all registered deeplink listeners. |
 | `Amply.getRecentEvents(limit)` | Async; returns recent events newest-first. |
+| `Amply.getLastCampaignTouch(withinMs)` | SDK 0.15.0+. Async; `{ campaignId, campaignName, kind: 'shown' \| 'engaged', atMs } \| null` — campaign last shown / completed within the window (≤ 30 d). Rejects only for a non-finite / negative window. See `campaign-attribution.md`. |
 | `Amply.getDataSetSnapshot(type)` | Async; `type` is one of the dataset shapes (`@device`, `@user`, `@custom`, `@session`, `@triggeredEvent`, `@events`). |
 | `Amply.setLogLevel(level)` / `getLogLevel()` | `'none' \| 'error' \| 'warn' \| 'info' \| 'debug'` |
 | `Amply.isInitialized()` | |

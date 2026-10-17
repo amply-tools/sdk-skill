@@ -210,7 +210,8 @@ timeout, with nothing on screen.
 | `registerDeepLinkListener` | `fun registerDeepLinkListener(listener: DeepLinkListener): ListenerToken` | |
 | `removeDeepLinkListener` | `fun removeDeepLinkListener(token: ListenerToken)` | Takes the **token**, not the listener. |
 | `setSystemEventsListener` | `fun setSystemEventsListener(listener: SystemEventsListener): ListenerToken` | |
-| `clearSystemEventsListener` | `fun clearSystemEventsListener(token: ListenerToken)` | |
+| `clearSystemEventsListener` | `fun clearSystemEventsListener(token: ListenerToken)` | One listener per SDK: a second `set` replaces the first — extend the existing one. |
+| `getLastCampaignTouch` | `suspend fun getLastCampaignTouch(withinMs: Long): CampaignTouch?` — SDK 0.15.0+. | Campaign last shown / completed within the window (≤ 30 d): `campaignId`, `campaignName`, `kind` (`SHOWN` / `ENGAGED`), `atMs`. See `campaign-attribution.md`. |
 | `setLogListener` | `fun setLogListener(listener: LogListener): ListenerToken` | No longer accepts `null`. |
 | `clearLogListener` | `fun clearLogListener(token: ListenerToken)` | |
 | `setLogLevel` / `getLogLevel` | | |

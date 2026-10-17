@@ -1,6 +1,6 @@
 ---
 name: amply-integration
-description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model — and when designing or configuring an Amply campaign for an app that already has the SDK — who should see it, when, and what the targeting conditions are. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties", "design a campaign", "set up a campaign", "campaign targeting", "who should see it", "настроить кампанию", "придумать кампанию", "таргетинг", "кому показать", "build a mini-app", "make a bottom sheet", "make a story", "сделай шторку", "сделай сторис", "собери мини-апп".
+description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model — and when designing or configuring an Amply campaign for an app that already has the SDK — who should see it, when, and what the targeting conditions are. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties", "design a campaign", "set up a campaign", "campaign targeting", "who should see it", "настроить кампанию", "придумать кампанию", "таргетинг", "кому показать", "campaign goal", "conversions", "which campaign drove purchases", "цель кампании", "build a mini-app", "make a bottom sheet", "make a story", "сделай шторку", "сделай сторис", "собери мини-апп".
 ---
 
 # Amply Integration
@@ -100,7 +100,7 @@ Before anything else, check two MCPs:
 
 ### Phase 0.5 — Goal sanity check
 
-**Before any discovery work**, restate the user's goal and map it onto what Amply actually does. The most expensive failure mode is integrating Amply for a goal it cannot serve. Use this 5-point checklist:
+**Before any discovery work**, restate the user's goal and map it onto what Amply actually does. The most expensive failure mode is integrating Amply for a goal it cannot serve. Use this checklist:
 
 | Goal phrasing | Amply role | Host-app role |
 |---|---|---|
@@ -108,6 +108,7 @@ Before anything else, check two MCPs:
 | "A/B test which popup variant a user sees" | ⚠ partial. Amply chooses *which* action fires (per-campaign), can target on Custom Properties and event history (Amply SDK 0.6.1+). **Traffic splitting is not generally available — don't offer it.** | Host assigns the bucket (typically a coin-flip persisted in storage + pushed as a Custom Property) and renders both variants. |
 | "Send a push notification / email" | ❌ Not Amply. | Use a push provider / email provider. Amply can deeplink users to a screen *after* they open the app. |
 | "Throttle prompts / rate-limit asks" | ✅ Repeat Rules + Frequency Limits on the campaign. | Implement the deeplink target. |
+| "Which campaigns bring purchases" / "see it in our analytics" | ✅ **Goals**: each campaign's conversions within a window after it was seen — computed from events already sent, any SDK version. | Optional: put `amply_campaign_id` on the purchase event, sent to Amply and the app's analytics (`references/campaign-attribution.md`). |
 | "Trigger an in-app action based on user history" — incl. "hasn't done X for N days" | ✅ built-in on Amply SDK 0.6.1+: audience rules target event history directly — counts, and **how long ago an event first/last happened** ("not in the last 7 days" includes never), with event property filters — alongside Custom Properties, combined with a triggering event. | Fire the events. **Don't add `last_x_at` / `x_count` properties for this** — they duplicate what the SDK already records. (Counter properties only for fleets below SDK 0.6.1 or derived state.) |
 
 In `autopilot`, write one paragraph at the top of the audit: "Your stated goal `<X>` maps onto Amply as follows: Amply will <Y>, your app must <Z>." If any element of the goal lands in the ❌ column, surface that as the first item of the audit. The integration may still be worth doing for the parts Amply *can* do, but the team needs to know upfront where they'll need their own infrastructure.
@@ -256,8 +257,9 @@ Per Scope discipline, these are **observations**, not action items. Interactive 
 For each candidate campaign, walk Amply's campaign model — see `references/who-when-what-audit.md`:
 
 - **Who** — list device properties (country, OS / app version, install date — the first time Amply ran on the device), Custom Properties, event-history conditions (Amply SDK 0.6.1+ — event counts, first/last-occurrence dates, event property filters) and campaign history (seen / last seen another campaign) needed; mark which are populated vs missing (for event conditions: does the app actually fire the event?). All conditions are AND — there is no OR.
-- **When** — list triggering event(s); flag whether **Event Param** rules are needed (e.g. `Purchase` filtered by `currency = "USD"`); record required keys/types. Note Repeat Rules and Frequency Limits required.
+- **When** — list triggering event(s); flag whether **Event Param** rules are needed (e.g. `Purchase` filtered by `currency = "USD"`); record required keys/types. Note Repeat Rules and Frequency Limits required, and **Show after** (0–3 s pause before showing, SDK 0.15.0+; older SDKs show immediately) when the moment needs to settle — rules in `references/who-when-what-audit.md` → *Show after*.
 - **What** — `Mini-app` (Amply Studio screen drawn by the SDK, 0.12.0+), `Deeplink`, or `RateReview`. Reject push notifications, email/SMS and other cross-channel sends — Amply is in-app only. A Deeplink (and a Mini-app's *open deep link* button) can carry **template variables** the SDK fills in on the device — `{@campaign.id}`, `{@custom.pet_name}` and so on, Amply SDK 0.13.0+ — so "which campaign sent this user" or a property value reaches the app's router without app code (`references/deeplink-wiring.md` → *Template variables*).
+- **Goal** — every campaign gets one: a primary goal (the outcome it exists for) + optional secondaries, each with a window — in-app nudge 1–24 h, winback 1–3 d, trial → paid up to 30 d. A property change (entitlement became `true`) is a goal with no purchase event; several SKUs are one goal with `one of`; a What's New campaign targets "`X` has never happened" in Who so any later `X` is a first use. Rules: `references/who-when-what-audit.md` → *Goal*.
 
 Save findings as `amply-audit.md` (template: `references/audit-template.md`). This is a **suggestion document**, not a prescription.
 
@@ -292,6 +294,8 @@ Initialise Amply in the right place using **the platform-correct API** (see SDK 
 - iOS: `amply.setAppLanguage(tag: currentLanguage)` / `AmplyConfig.appLanguage`. Android/KMP: `amply.setAppLanguage(currentLanguage)` / `appLanguage` in `AmplyConfig`.
 
 Pass the library's value as-is (`fr`, `pt-BR`, `pt_BR`, `zh-Hant` all work). Skip it for single-language apps and for native apps that rely only on the system per-app language setting — Amply detects those.
+
+**Campaign credit on purchases (optional).** For paywall / offer campaigns, the wrapper's purchase call can carry `amply_campaign_id` + `amply_campaign_name` — from the deeplink handler's `info`, or `getLastCampaignTouch(withinMs)` (SDK 0.15.0+) for purchases made elsewhere — sent to Amply and the app's analytics alike. Forwarding `CampaignShown` goes into the app's **existing** system-events listener, never a second one. Recipe: `references/campaign-attribution.md`.
 
 Pull keys from env / build config. **Refuse** to write keys inline — even if the project's own precedent hard-codes other vendors' keys (RevenueCat / Amplitude / etc.) inline. For projects with no existing env-loading pipeline, do one of: (a) suggest adding `react-native-config` / `EXPO_PUBLIC_*` / `BuildConfig` field, and write the Amply call against it with a clear TODO at the call-site; (b) document the choice prominently in the audit and let the user wire env loading on their own next pass. Never silently inline an Amply key just because the project does it elsewhere — `apiKeySecret` in particular must be treated as a real secret.
 
@@ -353,7 +357,8 @@ Run this **once, only after Phase 7 verification passes** (a test event has land
 
 - **Create your first campaign now** — author it in **Draft** and let the user activate after review.
   - If the **Amply MCP is connected**, call `campaign_create` — there are no templates, so author the campaign in full from the Who/When/What candidates already in the Phase 4 audit. Read the server's campaign targeting reference resource first for the vocabulary, and `references/amply-mcp.md` for the payload traps (`snake_case` keys, the required `triggering.limit`, and targeting being one flat all-must-match list). **Targeting over MCP now reaches everything the admin has** — country, application, app version, OS version, the app version at install, custom properties, install date, and event history — and a trigger carries its **event parameter filters**, so a `CustomPropertyChanged` campaign filtered on `key` and `newValue` is expressible here rather than only in the admin. Check the tool schema rather than this list if the two ever disagree; the server is right.
-    **`campaign_create` always produces a Draft.** `campaign_update` exists, but it **replaces the campaign in full** and returns it to Draft, and there is still no clone and no delete — so a draft created by mistake has to be removed by hand in the user's campaign list. Get the payload right on the first call: state the intended audience and trigger back to the user in one line before sending it.
+    **`campaign_create` always produces a Draft.** `campaign_update` exists, but it **replaces the campaign in full** and returns it to Draft, and there is still no clone and no delete — so a draft created by mistake has to be removed by hand in the user's campaign list. Get the payload right on the first call: state the intended audience, trigger and goal back to the user in one line before sending it.
+    **Bind a goal.** `goals_list` first; `goal_create` what's missing; pass `goals: {primary: {goal_id, window}, secondary: [...]}` on `campaign_create`. Conversions then appear in `campaign_statistics`.
     **When the campaign's What is a Mini-app**, build it over MCP first — `mini_app_create` from a one-line brief the user confirms, show them `editor_url`, `mini_app_publish`, then `campaign_create` with `type: "miniApp"` and the returned `campaign_content`. Pipeline, surface choice and design rules: `references/mini-app-authoring.md`.
   - If the **MCP is not connected**, point the user to the admin UI (`app.amply.tools`) and build the campaign from the Who/When/What candidates already in the Phase 4 audit (`amply-audit.md`) + `references/who-when-what-audit.md`.
 - **Done** — end the session.
@@ -421,6 +426,8 @@ Run this **only** on a successful finish **and** only if `feedbackConsent == yes
 | Putting "last happened more than N days ago" on the **same** event as the trigger. | The trigger occurrence is recorded first, so it always reads "just now". Put the recency on a different event (e.g. trigger `SessionStarted`, condition on `SessionFinished` or the core value event). |
 | Writing an audience with OR. | Targeting is AND-only. Split into two campaigns. |
 | An app with its own language switcher / JS translations never calls `setAppLanguage`. | Amply then uses the language iOS/Android chose for the app (or the device language), so sheets show in the wrong language. Wire `setAppLanguage` to the i18n library's change event (SDK 0.14.0+). |
+| Shipping a campaign with no goal. | Its stats then show impressions only, and nobody can tell whether it worked. Bind a primary goal with a window that fits the campaign (Phase 4 → Goal). |
+| Registering a second system-events listener on iOS / Android / KMP to forward campaign events. | The SDK keeps one; the new one silently replaces the app's existing listener. Add the forwarding inside the existing one. |
 | Assuming Install Date is the app install date. | It is when Amply first ran on the device. For an app that added Amply recently, "installed more than 30 days ago" matches nobody for 30 days. |
 
 ## Feedback

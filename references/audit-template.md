@@ -130,6 +130,7 @@ Baseline + project-detected. Set in the wrapper on session start (and on state c
 | **Who** | `subscription_status = 'expired'`, `trial_ends_at < now - 48h`. |
 | **When** | `SessionStarted` (system event), `Repeat Rule: on 1, 2, 3 globally`, `Frequency Limit: 1 per day`. |
 | **What** | `Deeplink → amply://promo/recovery-offer` → `PromoScreen`. |
+| **Goal** | Primary: `is_premium` changed to `true` (`CustomPropertyChanged`), 3 d. Purchase event carries `amply_campaign_id` from the deeplink `info`. |
 | **Gaps** | `trial_ends_at` Custom Property is not yet set — see § 3 and § 9. |
 
 ### Campaign — "RateReview after first purchase"
@@ -139,6 +140,7 @@ Baseline + project-detected. Set in the wrapper on session start (and on state c
 | **Who** | Event condition: `Purchase` happened `at least` 1 time (Amply SDK 0.6.1+; fleet below that → `total_purchases >= 1` counter property). |
 | **When** | `Purchase`, `Repeat Rule: on 1`, `Frequency Limit: lifetime 1`. |
 | **What** | `RateReview`. |
+| **Goal** | None — the store reports no review back. |
 | **Gaps** | None — the `Purchase` event is wired, and the event condition needs no extra app code. ⚠ Android: works only in Play-Store-distributed release builds. |
 
 ## 7. Mode-pinned decisions

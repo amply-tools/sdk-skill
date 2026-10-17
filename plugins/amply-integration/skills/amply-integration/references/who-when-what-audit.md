@@ -1,6 +1,6 @@
 # Who / When / What — campaign-model readiness audit
 
-This is the heart of Phase 4. For each candidate Amply campaign, walk the same three steps the admin panel uses: **Who** (targeting) → **When** (triggering) → **What** (action). At each step, list what the codebase already supplies and what's missing.
+This is the heart of Phase 4. For each candidate Amply campaign, walk the same three steps the admin panel uses: **Who** (targeting) → **When** (triggering) → **What** (action), then the **Goal** it is measured by. At each step, list what the codebase already supplies and what's missing.
 
 ## Who — targeting
 
@@ -91,6 +91,10 @@ If the app fires `Purchase` without `currency`, the campaign cannot exist as des
 - Minimum interval between impressions: `at least N {hours|minutes|days}`.
 - Per-session cap: `1 time per session`.
 
+### Show after (Amply SDK 0.15.0+)
+
+An optional pause of **0–3 s** (step 0.1 s; MCP `triggering.delay_ms`, 0–3000 in steps of 100) between the event and the show — to let a screen settle (0.5–1 s) or let the app's own celebration finish (1.5–2 s). Who and When are decided at the event; just before showing, the SDK re-checks the audience and that the content can show. The show is **dropped, not queued**, if the app goes to the background, the session ends, the user no longer matches, the campaign was edited or stopped, or a campaign created earlier (or a gated action) takes the screen; a campaign created later that triggers during the pause loses its turn. The same event again does not restart the pause. A dropped show is no impression (spends no total, min-interval or once-per-session cap; repeat rules, per-device caps and per-session caps above one count the trigger) and is reported as a `CampaignResolved` `Skipped*` result. `trackGated` ignores the delay. Older SDKs show immediately.
+
 ### Audit output per campaign
 
 | Field | Example |
@@ -130,6 +134,24 @@ If the app fires `Purchase` without `currency`, the campaign cannot exist as des
 | Host-app screen for the deeplink | `PromoScreen` |
 | URL scheme registered in `Info.plist` / `AndroidManifest.xml`? | ❌ — TODO |
 
+## Goal — what the campaign is for
+
+**Give every campaign a goal**: the event that means it worked. A goal is a project object (admin → Goals, or `goal_create`) defined like a trigger event; a campaign binds **1 primary + up to 4 secondary**, each with a window (30 s · 1 m · 5 m · 15 m · 1 h · 6 h · 24 h default · 3 d · 7 d · 30 d). A device converts when the goal event happens within the window after it saw or completed the campaign. Computed by Amply from events the app already sends — **no SDK floor, no app release**. Campaign numbers are non-exclusive (a user who saw two campaigns counts for both): compare campaigns, never add them up.
+
+- **Primary = the outcome the campaign exists for** (purchase, trial start, the announced feature used). Secondaries = steps on the way or effects worth watching (paywall opened, onboarding finished). Never the trigger event.
+- **Window by campaign kind:** in-app nudge / offer / tip **1–24 h**; winback / reactivation **1–3 d**; trial → paid **up to 30 d**. Too wide credits outcomes the campaign didn't cause; too narrow misses a considered decision.
+- **A property change is a goal — no purchase event needed.** System `CustomPropertyChanged` filtered on `key = is_premium` and `newValue = true` (value type as the app writes it). If the app already mirrors the entitlement into a Custom Property, the goal needs no new code.
+- **Several SKUs → one goal** with the goal-only **`one of`** operator on `sku` (MCP `compare_type: "in"`, `values`, ≤ 50). Triggers and audience filters don't have it.
+- **What's New / feature announcement:** Who = event `X` `has never happened`; goal = `X`. Every later `X` is then a first use — the thing the announcement is for. Without that Who condition, existing users of `X` convert for free.
+- Same check as triggers: a goal on an event the app never sends counts nothing.
+- **Exact credit** (a purchase started from the campaign, or decided days later): the app adds `amply_campaign_id` to the goal event — counted for that campaign up to 30 days after the touch, even outside the window. Recipe: `references/campaign-attribution.md`.
+
+| Field | Example |
+|---|---|
+| Primary goal + window | `Subscription purchased` (`PurchaseCompleted`, `sku` one of `pro_month`, `pro_year`), 24 h |
+| Secondary goals | `Paywall opened`, 1 h |
+| Goal event fires in code? | ✅ `useIap.ts:58` — or ❌ gap |
+
 ## Top use cases — checklist mapping
 
 For each Amply core use case from the product overview, the audit should produce a self-contained block.
@@ -139,36 +161,42 @@ For each Amply core use case from the product overview, the audit should produce
 - **Who** — segment by `referral_source` / `cpp_id` Custom Property + built-in **Install Date** `less than 1 day ago` (Install Date is when Amply first ran on the device — fine for a new install).
 - **When** — `SessionStarted` (system event), Repeat Rule `on 1`.
 - **What** — `Deeplink` to onboarding-A or onboarding-B.
+- **Goal** — `OnboardingCompleted`, 1–24 h.
 
 ### 2. Paywall versioning without releases
 
 - **Who** — `subscription_status = 'free'`, country in target list.
 - **When** — `PaywallTrigger` event (a synthetic event the app fires when the paywall *would* appear).
 - **What** — `Deeplink` to remote-rendered paywall variant.
+- **Goal** — purchase (or `is_premium` changed to `true`), 24 h; explicit mark from the link.
 
 ### 3. Post-trial recovery flow
 
 - **Who** — `subscription_status = 'expired'`, `trial_ended_at < 48h`.
 - **When** — `SessionStarted` with `Repeat Rule: on 1, 2, 3 globally`, `Frequency Limit: 1 per day`.
 - **What** — `Deeplink` to recovery-offer screen.
+- **Goal** — entitlement became active (`CustomPropertyChanged`), 3 d.
 
 ### 4. Reactivation after inactivity
 
 - **Who** — event `SessionFinished` last happened `more than 14 days ago` (or the app's core value event, e.g. `LessonCompleted`). No `last_session_at` property — event history already knows. Don't put the condition on `SessionStarted` itself: see *The trigger-event trap*.
 - **When** — `SessionStarted`.
 - **What** — `Mini-app` welcome-back sheet, or `Deeplink` to a reactivation screen.
+- **Goal** — the core value event (`LessonCompleted`), 1–3 d.
 
 ### 5. Seasonal / event-based campaigns
 
 - **Who** — country / locale-targeted; restrictive Custom Property gates.
 - **When** — any in-app event the team picks (`SessionStarted`, `HomeViewed`).
 - **What** — `Mini-app` sheet or story, or `Deeplink` to the seasonal banner.
+- **Goal** — purchase, `sku` one of the seasonal SKUs, 24 h–3 d.
 
 ### 6. RateReview after positive moment
 
 - **Who** — event condition `Purchase` happened `at least` 1 time (Amply SDK 0.6.1+; below that, `total_purchases >= 1` counter). Targeting has no OR — an `nps_score >= 9` audience is a second campaign.
 - **When** — event such as `PurchaseCompleted` or `LessonCompleted`, `Repeat Rule: on 1`, `Frequency Limit: lifetime 1`.
 - **What** — `RateReview`.
+- **Goal** — none: the store reports no review back. The one campaign kind that stays unbound.
 
 ## Deliverable
 

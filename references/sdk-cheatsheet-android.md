@@ -10,17 +10,17 @@ In `app/build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("tools.amply:sdk-android:0.13.0")
+    implementation("tools.amply:sdk-android:0.15.0")
 }
 ```
 
 Or `app/build.gradle` (Groovy):
 
 ```groovy
-implementation 'tools.amply:sdk-android:0.13.0'
+implementation 'tools.amply:sdk-android:0.15.0'
 ```
 
-Pin to the latest release — check Maven Central for the current version. **Pin `0.13.0` or later** (Mini-app campaigns need 0.12.0, template variables in campaign links 0.13.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
+Pin to the latest release — check Maven Central for the current version. **Pin `0.15.0` or later** (Mini-app campaigns need 0.12.0, template variables in campaign links 0.13.0, Test on device (`handleUrl`), Show after and `getLastCampaignTouch` 0.15.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
 
 ## Upgrading the SDK version — bump, refresh, verify, rebuild
 

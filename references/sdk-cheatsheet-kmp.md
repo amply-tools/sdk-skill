@@ -19,7 +19,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation("tools.amply:sdk-kmp:0.13.0")
+                implementation("tools.amply:sdk-kmp:0.15.0")
             }
         }
     }
@@ -28,7 +28,7 @@ kotlin {
 
 For iOS framework consumers (XcodeGen / SwiftUI app shell), the published XCFramework wraps the same library — see `sdk-cheatsheet-ios.md`.
 
-**Pin `0.13.0` or later** (Mini-app campaigns need 0.12.0, template variables in campaign links 0.13.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
+**Pin `0.15.0` or later** (Mini-app campaigns need 0.12.0, template variables in campaign links 0.13.0, Test on device (`handleUrl`), Show after and `getLastCampaignTouch` 0.15.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
 
 ## Upgrading the SDK version
 

@@ -15,6 +15,9 @@ All notable changes to `amply-integration` are documented here. Format follows [
 ### Fixed
 - **The iOS system-events snippet named a method that does not exist** (`references/sdk-cheatsheet-ios.md`). It showed `onSystemEvent(...)`; the protocol declares `onEvent(event: EventInterface)`.
 
+### Changed
+- Install pins in all four cheatsheets move to **0.15.0** (Test on device, Show after, `getLastCampaignTouch`).
+
 ## [0.15.0] — 2026-10-16
 
 ### Added

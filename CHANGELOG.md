@@ -2,6 +2,11 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] — 2026-10-18
+
+### Added
+- **Upload a local image over MCP** (`references/amply-mcp.md`): `mini_app_image_upload` returns a one-time upload link; one `curl` sends the file and returns the same `{url, width, height}` image source as `mini_app_image_import`, which still covers public https URLs.
+
 ## [0.16.0] — 2026-10-17
 
 ### Added

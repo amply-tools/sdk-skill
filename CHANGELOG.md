@@ -2,7 +2,7 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [0.16.0] — Unreleased
+## [0.16.0] — 2026-10-17
 
 ### Added
 - **Every campaign gets a goal** (`SKILL.md` Phase 0.5 / Phase 4 / Phase 8 / *Common mistakes*, `references/who-when-what-audit.md` → *Goal*, `references/audit-template.md`). A primary goal plus up to 4 secondaries, each with a window — in-app nudges 1–24 h, winback 1–3 d, trial → paid up to 30 d. A property change (entitlement became `true`) is a goal with no purchase event; several SKUs are one goal with the goal-only `one of` operator; a What's New campaign targets "`X` has never happened" so any later `X` is a first use. Goals are computed by Amply from events the app already sends — no SDK floor, no app release. Every use-case recipe now names its goal.
@@ -16,7 +16,7 @@ All notable changes to `amply-integration` are documented here. Format follows [
 - **The iOS system-events snippet named a method that does not exist** (`references/sdk-cheatsheet-ios.md`). It showed `onSystemEvent(...)`; the protocol declares `onEvent(event: EventInterface)`.
 
 ### Changed
-- Install pins in all four cheatsheets move to **0.15.0** (Test on device, Show after, `getLastCampaignTouch`).
+- Install pins move to **0.15.0** in the native and KMP cheatsheets and to **0.15.1** in the React Native one (Test on device, Show after, `getLastCampaignTouch`; RN 0.15.1 fixes the CommonJS entry Jest loads).
 
 ## [0.15.0] — 2026-10-16
 

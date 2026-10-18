@@ -63,8 +63,15 @@ affordance). What still decides the result:
 - **One primary action, last.** The filled button is the last element. A secondary choice goes
   directly above it as a toned button (`background: "@surfaceVariant"`, `text_color: "@onSurface"`)
   or as a plain text link — never two filled buttons.
-- **Always a way out.** A sheet or card gets a ✕ (a `text` "✕" aligned to the trailing edge with a
-  `close` action) or a *Not now* link. Stories draw their own ✕.
+- **Always a way out — the ✕ as well as *Not now*.** Sheets and cards have a built-in ✕ in the top
+  corner (`close_button` in the presentation); a new sheet or card gets it without asking. Keep it
+  even when there is a *Not now* link: people look for the ✕ first. Turn it off
+  (`close_button: false`) only for a screen the user must answer, and say so to the user. Don't draw
+  a ✕ of your own — it would sit next to the built-in one. Leave the top-trailing corner of the
+  content clear. Stories draw their own ✕.
+- **Tap outside closes by default** (`dismiss_on_tap`). Keep it for offers, news and rating asks;
+  set `dismiss_on_tap: false` on a sheet or card with inputs, where a stray tap would throw away the
+  answers. The handle on a sheet (`drag_handle`, on by default) closes it with a swipe down.
 - **Sheets and cards size to their content** — nothing in them may grow (`scroll`, an unsized
   `spacer`). The server refuses that, because on a device it collapses to nothing.
 - **Full screens pin the call to action in `footer`.** Put the buttons in the screen's `footer` and the

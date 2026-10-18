@@ -2,6 +2,15 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2] — 2026-10-18
+
+### Changed
+- **Sheets and cards keep the built-in ✕** (`references/mini-app-authoring.md` → *Making it look good*). A new sheet or card gets the built-in close button (`close_button`); keep it even next to a *Not now* link, turn it off only for a screen the user must answer, and never draw a ✕ of your own. The old rule — "a ✕ *or* a Not now link" — let a build skip the ✕.
+- **When to turn off tap outside**: keep it for offers, news and rating asks; turn it off (`dismiss_on_tap: false`) on a sheet or card with inputs, where a stray tap would throw the answers away.
+
+### Added
+- **Gestures run actions** (`interactions` on a screen: `swipe_down`, `swipe_up`, `swipe_left`, `swipe_right`, `tap_outside`). The defaults already behave natively (a sheet closes on a swipe down from anywhere on it); bind more only where it helps — onboarding `swipe_left` → next step, promo story `swipe_up` → open the link, survey sheet `swipe_down` → save answers and close. A close reached by a gesture counts as a dismissal. A gesture never replaces the visible ✕.
+
 ## [0.16.1] — 2026-10-18
 
 ### Added

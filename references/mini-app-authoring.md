@@ -72,6 +72,15 @@ affordance). What still decides the result:
 - **Tap outside closes by default** (`dismiss_on_tap`). Keep it for offers, news and rating asks;
   set `dismiss_on_tap: false` on a sheet or card with inputs, where a stray tap would throw away the
   answers. The handle on a sheet (`drag_handle`, on by default) closes it with a swipe down.
+- **Gestures run actions too** (`interactions` on a screen: `swipe_down`, `swipe_up`, `swipe_left`,
+  `swipe_right`, `tap_outside`, each an action list like `on_tap`). The defaults already do the
+  native thing — a sheet closes on a swipe down from anywhere on it, a sheet or card on a tap outside,
+  a story on a swipe down — so add bindings only where they help: `swipe_left` → `navigate` to the
+  next step of a full-screen onboarding; `swipe_up` → `track_event` + `open_link` on a promo story
+  (set on the story's first slide, it covers the whole story); `swipe_down` → `save_answers` +
+  `close` on a survey sheet, so a swipe keeps the answers; `[]` turns a default off. A close reached
+  by a gesture counts as a dismissal, not a conversion. A gesture never replaces the visible ✕ or
+  button — people using a screen reader cannot swipe.
 - **Sheets and cards size to their content** — nothing in them may grow (`scroll`, an unsized
   `spacer`). The server refuses that, because on a device it collapses to nothing.
 - **Full screens pin the call to action in `footer`.** Put the buttons in the screen's `footer` and the

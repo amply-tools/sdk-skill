@@ -107,8 +107,9 @@ Each of these produces a confusing error rather than a clear one.
 * `goals` = `{primary: {goal_id, window}, secondary: [{goal_id, window}, …]}` — ≤ 4 secondary,
   secondaries need a primary, each goal once, goals of this project and not archived. `window` ∈
   `30s 1m 5m 15m 1h 6h 24h 3d 7d 30d`, default `24h`. Unlike every other field, **omitting `goals`
-  on `campaign_update` keeps them**; `{}` removes them all. Create the goals first (`goals_list`,
-  then `goal_create` for what's missing).
+  on `campaign_update` keeps them**; `{"secondary": []}` (no `primary`) removes them all — a bare
+  `{}` is refused by the server's argument check. Create the goals first (`goals_list`, then
+  `goal_create` for what's missing).
 * Targeting is a **flat list of conditions, all of which must match** — not OR-ed groups. Two
   `country` conditions therefore match nobody. Express a range as two conditions
   (`app_version >= 1.4.0` and `app_version < 1.5.0`).

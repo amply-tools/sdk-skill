@@ -2,6 +2,11 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.3] — 2026-10-20
+
+### Fixed
+- **Clearing a campaign's goals** (`references/amply-mcp.md` → goals). Remove them all with `goals: {"secondary": []}` and no `primary`; a bare `goals: {}` is refused by the MCP server before it reaches Amply. Leaving `goals` out of `campaign_update` still keeps the goals as they are.
+
 ## [0.16.2] — 2026-10-18
 
 ### Changed

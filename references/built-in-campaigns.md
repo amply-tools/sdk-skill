@@ -1,6 +1,6 @@
 # Built-in campaigns — ship campaigns inside the app build
 
-**Amply SDK {{SDK_VERSION}}+** (iOS, Android, KMP, React Native / Expo). Older SDKs ignore the file — shipping it does no harm.
+**Amply SDK 0.16.0+** (iOS, Android, KMP, React Native / Expo). Older SDKs ignore the file — shipping it does no harm.
 
 A campaign marked **Built-in** ships inside the app binary as `amply-bundle.json`. On an install that has **never** received campaigns from Amply, the SDK shows the built-in campaigns from that file — Mini-app screens and images included — with no internet. The first successful download from Amply replaces the bundle **for good**; from then on the app uses its saved copy of the live campaigns offline, as before, and does not read the bundle again (the one exception is an emergency switch-back by Amply — see *What happens on the device*).
 
@@ -99,7 +99,7 @@ Limit: **20 MB** for the whole file. Over that, the CLI refuses (exit `4`) and w
 2. **File is right** — `npx @amplytools/cli bundle --check` exits `0`.
 3. **On a test device or simulator** — never a personal phone without asking: uninstalling erases the app's data. Uninstall the app (it must never have reached Amply), install the new build, go offline, launch, fire the trigger. The campaign shows; a system-events listener sees `ConfigFetchFinished` with `configSource: "bundle"` and `bundleGeneratedAt`. Android emulator: `adb uninstall <package>`, install, `adb shell cmd connectivity airplane-mode enable`, launch (`… airplane-mode disable` after). iOS: the simulator shares the Mac's network, so the offline check is a **physical device in airplane mode** — a human step ("UI work needs eyes"). Online, the live campaigns win (`configSource: "network"`), which proves nothing about the bundle.
 
-`ConfigFetchFinished.configSource` (SDK {{SDK_VERSION}}+): `network` | `cache` | `bundle` | `forcedBundle` | `empty`. From the same version `success` means only "this download validated" — it is `false` after a fallback, where older SDKs reported `true`.
+`ConfigFetchFinished.configSource` (SDK 0.16.0+): `network` | `cache` | `bundle` | `forcedBundle` | `empty`. From the same version `success` means only "this download validated" — it is `false` after a fallback, where older SDKs reported `true`.
 
 ## CLI exit codes
 

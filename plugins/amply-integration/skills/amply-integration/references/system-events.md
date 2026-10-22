@@ -10,7 +10,7 @@ This matters for the audit: if the project's existing analytics fires its own ve
 |---|---|---|
 | `SdkInitialized` | After SDK init completes | — |
 | `ConfigFetchStarted` | Before remote config fetch | — |
-| `ConfigFetchFinished` | After remote config fetch | `campaignCount`, `success`, `campaigns`; **{{SDK_VERSION}}+:** `configSource` (`network` / `cache` / `bundle` / `forcedBundle` / `empty`) and `bundleGeneratedAt` when the campaigns come from a built-in bundle. From {{SDK_VERSION}}, `success` is `false` after any fallback (older SDKs reported `true`). |
+| `ConfigFetchFinished` | After remote config fetch | `campaignCount`, `success`, `campaigns`; **0.16.0+:** `configSource` (`network` / `cache` / `bundle` / `forcedBundle` / `empty`) and `bundleGeneratedAt` when the campaigns come from a built-in bundle. From 0.16.0, `success` is `false` after any fallback (older SDKs reported `true`). |
 | `SessionStarted` | At session start | `type: 'cold' \| 'warm'` |
 | `SessionFinished` | At session end | — |
 | `CampaignShown` | When a campaign action fires (with *Show after*: when it actually appears) | `source` (triggering event), `campaignId`, `campaignName` (0.15.0+) |

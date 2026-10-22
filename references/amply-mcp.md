@@ -122,7 +122,7 @@ Each of these produces a confusing error rather than a clear one.
   property the app reported. If you are talking to an older server, check that a filter you sent
   comes back from `campaign_get`.)
 * `built_in: true` — ship the campaign inside the app build so it shows on a first launch with no
-  network (Amply SDK {{SDK_VERSION}}+). Omitted on create = `false`; omitted on `campaign_update` = unchanged.
+  network (Amply SDK 0.16.0+). Omitted on create = `false`; omitted on `campaign_update` = unchanged.
   It only reaches users once the campaign is **active** (not under an A/B test) **and** the developer has
   re-run `npx @amplytools/cli bundle` and built — `references/built-in-campaigns.md`. Setting it with
   `campaign_update` on a live campaign returns it to Draft like any update.

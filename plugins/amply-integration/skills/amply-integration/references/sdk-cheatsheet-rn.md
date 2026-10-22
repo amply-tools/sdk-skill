@@ -16,7 +16,7 @@ yarn add @amplytools/react-native-amply-sdk@^0.15.1
 
 **Native module: autolinking, every flavour.** React Native autolinking (via the package's `react-native.config.js`) registers the native module on both platforms, including during `expo prebuild`. The Expo config plugin plays no part in that.
 
-**Expo flavours C and D: add the plugin entry.** In the active Expo config (`app.json`, or `app.config.js` / `.ts`), append `"@amplytools/react-native-amply-sdk"` to `expo.plugins` if it is not there — keep every existing entry. It copies **built-in campaign** bundles (`amply-bundle.android.json` / `amply-bundle.ios.json` at the project root) into the native projects at prebuild — SDK {{SDK_VERSION}}+, see `references/built-in-campaigns.md`. Without those files it changes nothing and prints nothing, so add it on every Expo integration; **never remove an existing entry** (earlier versions of this skill said to — that advice is withdrawn). Flavours A and B need no entry: no prebuild runs there, so it would never execute. You still must identify the RN flavour via `references/platform-detection.md` §2 first: it decides whether `expo prebuild` is safe to run at all.
+**Expo flavours C and D: add the plugin entry.** In the active Expo config (`app.json`, or `app.config.js` / `.ts`), append `"@amplytools/react-native-amply-sdk"` to `expo.plugins` if it is not there — keep every existing entry. It copies **built-in campaign** bundles (`amply-bundle.android.json` / `amply-bundle.ios.json` at the project root) into the native projects at prebuild — SDK 0.16.0+, see `references/built-in-campaigns.md`. Without those files it changes nothing and prints nothing, so add it on every Expo integration; **never remove an existing entry** (earlier versions of this skill said to — that advice is withdrawn). Flavours A and B need no entry: no prebuild runs there, so it would never execute. You still must identify the RN flavour via `references/platform-detection.md` §2 first: it decides whether `expo prebuild` is safe to run at all.
 
 **Build command — always read the project's `package.json` scripts first.** What follows is the *canonical fallback* per flavour. If the project already has `scripts.ios` / `scripts.android` / `scripts.dev:ios` / a `fastlane` lane / `eas build` setup, **prefer that** even if it doesn't match the canonical command (legacy scripts are common and not always worth rewriting during integration).
 
@@ -214,7 +214,7 @@ if (decision.outcome === 'proceed') {
 }
 ```
 
-## Built-in campaigns (SDK {{SDK_VERSION}}+)
+## Built-in campaigns (SDK 0.16.0+)
 
 Campaigns that must show on the very first launch, even offline. No JS API — one CLI run per release, from the project root, with the public keys:
 

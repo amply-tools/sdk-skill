@@ -123,7 +123,7 @@ Stop and warn the user when any of these fail:
 | iOS deployment target (KMP / native) | `>= 14.1` | KMP capabilities reference |
 | Kotlin compiler | KMP-compatible Kotlin (1.9+) for KMP projects | Inferred from KMP samples |
 
-**Amply SDK floor (capability axis, not a stop-gate):** alongside the host-platform gates above, record which **Amply SDK version** the project pins. Event-history audience targeting (event counts, first/last-occurrence dates, event property filters) only matches apps running **Amply SDK 0.6.1+** — devices on older SDK builds don't fail, they simply never match campaigns that use event conditions. Mini-app campaigns need **0.12.0+** on the same terms, and built-in campaigns (`amply-bundle.json`, shown on a first launch with no network) **{{SDK_VERSION}}+** — older SDKs ignore the file. Pin what the install snippets in every `sdk-cheatsheet-*.md` pin (0.12.x) on new integrations; for an existing integration, note the pinned version in the audit so the team knows which targeting vocabulary their fleet supports.
+**Amply SDK floor (capability axis, not a stop-gate):** alongside the host-platform gates above, record which **Amply SDK version** the project pins. Event-history audience targeting (event counts, first/last-occurrence dates, event property filters) only matches apps running **Amply SDK 0.6.1+** — devices on older SDK builds don't fail, they simply never match campaigns that use event conditions. Mini-app campaigns need **0.12.0+** on the same terms, and built-in campaigns (`amply-bundle.json`, shown on a first launch with no network) **0.16.0+** — older SDKs ignore the file. Pin what the install snippets in every `sdk-cheatsheet-*.md` pin (0.12.x) on new integrations; for an existing integration, note the pinned version in the audit so the team knows which targeting vocabulary their fleet supports.
 
 **How to check:**
 
@@ -146,5 +146,5 @@ Min OS / SDK versions:     <iOS x.x | Android api xx>
 RN New Architecture:       <yes | no | n/a>
 Existing consent framework: <ATT | UMP | OneTrust | Didomi | custom | none>
 Version gates passed:      <list> | failed: <list>
-Amply SDK pinned:          <version — 0.6.1+ event-history targeting, 0.12.0+ Mini-apps, 0.13.0+ template variables in links, 0.15.0+ Show after + getLastCampaignTouch, {{SDK_VERSION}}+ built-in campaigns>
+Amply SDK pinned:          <version — 0.6.1+ event-history targeting, 0.12.0+ Mini-apps, 0.13.0+ template variables in links, 0.15.0+ Show after + getLastCampaignTouch, 0.16.0+ built-in campaigns>
 ```

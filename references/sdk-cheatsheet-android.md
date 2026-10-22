@@ -257,7 +257,7 @@ viewModelScope.launch {
 }
 ```
 
-## Built-in campaigns (SDK {{SDK_VERSION}}+)
+## Built-in campaigns (SDK 0.16.0+)
 
 Campaigns that must show on the very first launch, even offline. No Kotlin API: run `npx @amplytools/cli bundle --android <apiKeyPublic>` in the repo root. It writes `app/src/main/assets/amply-bundle.json` (if the CLI can't find the app module, or finds several, pass the shipped one: `--out-android <module>/src/main/assets`); Gradle packages it with no further step. Commit it with `amply.json`. Full flow: `references/built-in-campaigns.md`.
 

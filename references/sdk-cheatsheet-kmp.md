@@ -236,6 +236,10 @@ Same types as Android/Kotlin: `GateDecision.Proceed(reason: ProceedReason)` / `G
 
 `CampaignPresenter` and `CampaignResolution`/`CampaignResult` live in the platform layer — wire them from `androidMain`/`iosMain`.
 
+## Built-in campaigns (SDK {{SDK_VERSION}}+)
+
+No common-code API. From the repo root, `npx @amplytools/cli bundle --android <android apiKeyPublic> --ios <ios apiKeyPublic>` finds the Android app module (the one applying `com.android.application`) and the Xcode project in the root or one level down (`iosApp/`), and writes `amply-bundle.json` into the app's `src/main/assets/` and next to the iOS app target's `Info.plist`. Ambiguous layout → `--out-android` / `--out-ios`. iOS target membership as in `sdk-cheatsheet-ios.md`. Full flow: `references/built-in-campaigns.md`.
+
 ## Requirements
 
 - Android `minSdk` 21+, iOS deployment target 14.1+.

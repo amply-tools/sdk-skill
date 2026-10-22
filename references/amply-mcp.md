@@ -36,7 +36,8 @@ Read this before planning a phase around it — the gaps decide the shape of the
 **Can:** read projects; list, read, create, activate and stop campaigns; build, edit and publish
 **Mini-apps** (sheets, cards, full screens, stories — see `references/mini-app-authoring.md`); read
 active-user and per-campaign analytics; define conversion **goals**, bind them to campaigns and read
-each campaign's conversions; manage product prices, price batches and custom price indexes.
+each campaign's conversions; mark campaigns **built-in** and see what an app's next bundle will hold
+(`references/built-in-campaigns.md`); manage product prices, price batches and custom price indexes.
 
 **Can, but only on some connections — check the tool list:** register a project or an application
 and read or mint its API keys. Provisioning is newer than the campaign tools, needs the
@@ -69,13 +70,14 @@ Names are `snake_case`. Only the connection check keeps the `amply_` prefix.
 | `application_create` | Needs `apps:write` + admin. Returns the `appId` **and** the first key pair. `platform` is case-sensitive (`iOS` / `Android`); one call per platform; a duplicate `bundleId` + `platform` is refused, not duplicated. |
 | `api_keys_list` | Needs `apps:write` — it returns live secrets in plaintext, which is why it is not under a read scope. |
 | `api_key_create` | Needs `apps:write` + admin. Mints an **additional** pair; the previous one stays live. |
-| `campaigns_list` | `project_id`, optional `search`, `limit` 1–100. |
-| `campaign_get` | The campaign as stored, incl. `goals` and `triggering.delay_ms` (each left out when unset). |
+| `campaigns_list` | `project_id`, optional `search`, `limit` 1–100. Each item carries `built_in`. |
+| `campaign_get` | The campaign as stored, incl. `goals` and `triggering.delay_ms` (each left out when unset) and `built_in`. |
 | `campaign_create` | Always a **draft**. See the payload traps below. |
-| `campaign_update` | **Full replace**, not a patch — omitted fields are cleared (except `goals`), and the campaign returns to Draft. Carry `campaign_get`'s output back (rename `id` → `campaign_id`, drop `state`). |
+| `campaign_update` | **Full replace**, not a patch — omitted fields are cleared (except `goals` and `built_in`), and the campaign returns to Draft. Carry `campaign_get`'s output back (rename `id` → `campaign_id`, drop `state`). |
 | `goals_list` | `project_id`, optional `include_archived`. Each goal: `id`, `name`, `version`, `event`. |
 | `goal_create` | `project_id`, `name`, `event` (`{name, type: custom\|system, params}` — the trigger-event shape, plus `compare_type: "in"` + `values` = one of, ≤ 50). Shows nothing to anyone. |
 | `goal_update` | `goal_id`, `expected_version`, `name`, `event` — all required. Refused if the goal changed since you read it. An event change starts a new version from now; past events are not recomputed. |
+| `builtin_bundle_get` | `application_id` (from `applications_list`; one call per application — iOS and Android are separate). Per SDK key: `status` (`published` / `not_published_yet` / `unreadable`), `generated_at`, `stale`, `campaigns` the next bundle will hold, `object_count` / `object_bytes` (Mini-app files), `problems`, `missing` built-in campaigns with `reason` (`not_active`, `running_experiment`, `failed_to_compile`, `not_published_yet`), and `cli.command` / `cli.npx_command` / `cli.output_paths` — the exact command to run in the app repo. Reads only; never returns file contents. |
 | `campaign_activate` | Publishes a draft. Refused at the plan's active-campaign limit. |
 | `campaign_stop` | Stops a live campaign. Cannot return it to draft — neither can the admin. |
 | `statistics_active_users` | Daily or monthly, per project, range ≤ 366 days. |
@@ -119,6 +121,11 @@ Each of these produces a confusing error rather than a clear one.
   and then silently discarded, which made a `CustomPropertyChanged` campaign fire on every
   property the app reported. If you are talking to an older server, check that a filter you sent
   comes back from `campaign_get`.)
+* `built_in: true` — ship the campaign inside the app build so it shows on a first launch with no
+  network (Amply SDK {{SDK_VERSION}}+). Omitted on create = `false`; omitted on `campaign_update` = unchanged.
+  It only reaches users once the campaign is **active** (not under an A/B test) **and** the developer has
+  re-run `npx @amplytools/cli bundle` and built — `references/built-in-campaigns.md`. Setting it with
+  `campaign_update` on a live campaign returns it to Draft like any update.
 * `campaign_get` returns the campaign spelled the way `campaign_update` takes it (`snake_case`):
   to edit, send its `id` as `campaign_id`, drop `state`, and carry every other field back.
 * `campaign_update` **replaces the campaign in full** and returns it to Draft — on a live campaign

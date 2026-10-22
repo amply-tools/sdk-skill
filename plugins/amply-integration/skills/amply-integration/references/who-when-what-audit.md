@@ -114,6 +114,8 @@ An optional pause of **0–3 s** (step 0.1 s; MCP `triggering.delay_ms`, 0–300
 2. **`Deeplink`** — admin field is a URL; SDK calls the registered deeplink listener; the host app routes to a screen and renders whatever UI it wants.
 3. **`RateReview`** — no extra config; the SDK invokes the platform's native in-app review dialog.
 
+**Built-in** (Amply SDK {{SDK_VERSION}}+) is a flag on any of these, not a fourth type: the campaign ships inside the app build and can show on a first launch with no network, until the device's first successful download. Use it for first-launch onboarding, paywall or consent; not for a campaign under an A/B test, and not for anything that can wait for the first connection. Costs one CLI run per release — `references/built-in-campaigns.md`.
+
 **Off-limits in the audit — flag and reject:**
 
 | Asked for | Reality |
@@ -160,7 +162,7 @@ For each Amply core use case from the product overview, the audit should produce
 
 - **Who** — segment by `referral_source` / `cpp_id` Custom Property + built-in **Install Date** `less than 1 day ago` (Install Date is when Amply first ran on the device — fine for a new install).
 - **When** — `SessionStarted` (system event), Repeat Rule `on 1`.
-- **What** — `Deeplink` to onboarding-A or onboarding-B.
+- **What** — `Deeplink` to onboarding-A or onboarding-B. A Mini-app onboarding that must also show offline on launch 1 → mark it **Built-in** (`references/built-in-campaigns.md`).
 - **Goal** — `OnboardingCompleted`, 1–24 h.
 
 ### 2. Paywall versioning without releases

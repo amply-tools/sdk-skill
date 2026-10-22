@@ -2,6 +2,16 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Built-in campaigns** (`references/built-in-campaigns.md`, new; `SKILL.md` *When to Use* / Phase 0.5 / Phase 4 / Phase 8 / *Common mistakes*; `references/who-when-what-audit.md` → *What*; all four cheatsheets; `references/platform-detection.md`). A campaign marked Built-in (admin switch, or MCP `built_in: true`) ships inside the app build and shows on the very first launch with no network, until the device's first successful download (**SDK {{SDK_VERSION}}+**; barring an emergency switch-back by Amply). Suggest it for first-launch onboarding, paywall or consent; never for a campaign under an A/B test. Flow: activate → `npx @amplytools/cli bundle --android <key> --ios <key>` (public keys; later runs need no arguments) → commit the bundle file(s) (`amply-bundle.json`, or `amply-bundle.android.json` / `.ios.json` in Expo C/D) and `amply.json`; iOS adds the file to the app target once; Expo (C/D) relies on the config plugin. CI: `npx @amplytools/cli@1.0.0 bundle --check`. Verify offline on a fresh install; `ConfigFetchFinished.configSource` reads `bundle`.
+- **MCP** (`references/amply-mcp.md`): `built_in` on `campaign_create` / `campaign_update` (omitted on update = unchanged) / `campaign_get` / `campaigns_list`; new `builtin_bundle_get(application_id)` — what the next bundle holds, what is missing and why, and the exact CLI command.
+- `configSource` / `bundleGeneratedAt` on `ConfigFetchFinished`, and its new `success` meaning (`references/system-events.md`).
+
+### Changed
+- **Expo apps keep — and add — the Amply config plugin entry** (`"plugins": ["@amplytools/react-native-amply-sdk"]` in `app.json`, Flavours C and D). It copies built-in campaign bundles into the native projects at prebuild and does nothing without them. This reverses 0.10.1's "remove the entry when you next touch `app.json`". Flavours A and B still need no entry. The native module is registered by autolinking in every flavour, never by the plugin (`references/platform-detection.md` table corrected).
+
 ## [0.16.3] — 2026-10-20
 
 ### Fixed

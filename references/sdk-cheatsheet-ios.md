@@ -329,6 +329,10 @@ if case .proceed = decision {
 }
 ```
 
+## Built-in campaigns (SDK {{SDK_VERSION}}+)
+
+Campaigns that must show on the very first launch, even offline. No Swift API: run `npx @amplytools/cli bundle --ios <apiKeyPublic>` in the repo root. It writes `amply-bundle.json` next to the app target's `Info.plist` (`--out-ios <folder>` otherwise). The file must be a **resource of the app target** — automatic in a synchronized folder (Xcode 16+ projects); otherwise the human adds it once in Xcode (drag in, tick the app target). Verify with `npx @amplytools/cli bundle --check` → exit `0`. Commit it with `amply.json`. Full flow: `references/built-in-campaigns.md`.
+
 ## Requirements
 
 - iOS 15.0+ for the CocoaPods spec from 0.13.0 (current Xcode builds nothing older); Swift Package Manager still declares iOS 14.

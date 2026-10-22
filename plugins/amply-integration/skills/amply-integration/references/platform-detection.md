@@ -21,7 +21,7 @@ If both Android (`/android`) and iOS (`/ios`) folders exist as siblings of `pack
 
 ## 2. RN flavour disambiguation — **four**, not two
 
-This is the most error-prone discovery step in the entire skill. Get it wrong and you either (a) wipe the user's hand-managed `ios/` / `android/` folders by recommending `expo prebuild`, or (b) add a config-plugin entry that does nothing.
+This is the most error-prone discovery step in the entire skill. Get it wrong and you either (a) wipe the user's hand-managed `ios/` / `android/` folders by recommending `expo prebuild`, or (b) put the config-plugin entry where it can never run (A/B) — or leave it out where built-in campaigns need it (C/D).
 
 ### The four flavours
 
@@ -63,10 +63,10 @@ Treat this sub-case identically to Flavour B for everything in this skill.
 
 | Flavour | Add `@amplytools/...` to `app.json` plugins? | Native registration | iOS install | Android install |
 |---|---|---|---|---|
-| A. Pure Bare RN | ❌ no — there's no plugin runner | RN autolinking via `react-native.config.js` (automatic on RN ≥ 0.79) | `cd ios && pod install` | Gradle sync |
-| B. Bare RN + Expo Modules | ❌ **no** — entry would be a no-op and misleading; the plugin never runs | RN autolinking (same as A); Expo Modules autolinking runs in parallel but doesn't trigger Amply's plugin | `cd ios && pod install` | Gradle sync |
-| C. Expo Prebuild Workflow | ✅ **yes** — required; the plugin mutates `MainApplication.kt` during `prebuild` | The plugin registers `AmplyPackage`; `prebuild` writes it into generated code | `npx expo prebuild --clean` then `pod install` | `npx expo prebuild --clean` then Gradle sync |
-| D. Expo Managed | ✅ yes — same as C; built remotely by EAS | EAS Build runs the plugin during the cloud build | `eas build -p ios` | `eas build -p android` |
+| A. Pure Bare RN | ❌ no — there's no plugin runner; built-in campaign bundles go straight into `android/` + `ios/` | RN autolinking via `react-native.config.js` (automatic on RN ≥ 0.79) | `cd ios && pod install` | Gradle sync |
+| B. Bare RN + Expo Modules | ❌ **no** — the plugin never runs (no prebuild); built-in campaign bundles go straight into `android/` + `ios/`, as in A | RN autolinking (same as A); Expo Modules autolinking runs in parallel but doesn't trigger Amply's plugin | `cd ios && pod install` | Gradle sync |
+| C. Expo Prebuild Workflow | ✅ **yes** — at `prebuild` it copies the built-in campaign bundles (`amply-bundle.*.json` at the project root) into the native projects; without them it does nothing | RN autolinking during `prebuild` — not the plugin | `npx expo prebuild --clean` then `pod install` | `npx expo prebuild --clean` then Gradle sync |
+| D. Expo Managed | ✅ yes — same as C; EAS Build runs it during the cloud prebuild | RN autolinking in the EAS cloud build | `eas build -p ios` | `eas build -p android` |
 
 For Android specifically: if the project is Flavour A or B and **autolinking fails to register the package** (rare on RN ≥ 0.79 but possible on older RN with mismatched codegen), you may need to manually edit `MainApplication.kt`:
 
@@ -123,7 +123,7 @@ Stop and warn the user when any of these fail:
 | iOS deployment target (KMP / native) | `>= 14.1` | KMP capabilities reference |
 | Kotlin compiler | KMP-compatible Kotlin (1.9+) for KMP projects | Inferred from KMP samples |
 
-**Amply SDK floor (capability axis, not a stop-gate):** alongside the host-platform gates above, record which **Amply SDK version** the project pins. Event-history audience targeting (event counts, first/last-occurrence dates, event property filters) only matches apps running **Amply SDK 0.6.1+** — devices on older SDK builds don't fail, they simply never match campaigns that use event conditions. Mini-app campaigns need **0.12.0+** on the same terms. Pin what the install snippets in every `sdk-cheatsheet-*.md` pin (0.12.x) on new integrations; for an existing integration, note the pinned version in the audit so the team knows which targeting vocabulary their fleet supports.
+**Amply SDK floor (capability axis, not a stop-gate):** alongside the host-platform gates above, record which **Amply SDK version** the project pins. Event-history audience targeting (event counts, first/last-occurrence dates, event property filters) only matches apps running **Amply SDK 0.6.1+** — devices on older SDK builds don't fail, they simply never match campaigns that use event conditions. Mini-app campaigns need **0.12.0+** on the same terms, and built-in campaigns (`amply-bundle.json`, shown on a first launch with no network) **{{SDK_VERSION}}+** — older SDKs ignore the file. Pin what the install snippets in every `sdk-cheatsheet-*.md` pin (0.12.x) on new integrations; for an existing integration, note the pinned version in the audit so the team knows which targeting vocabulary their fleet supports.
 
 **How to check:**
 
@@ -146,5 +146,5 @@ Min OS / SDK versions:     <iOS x.x | Android api xx>
 RN New Architecture:       <yes | no | n/a>
 Existing consent framework: <ATT | UMP | OneTrust | Didomi | custom | none>
 Version gates passed:      <list> | failed: <list>
-Amply SDK pinned:          <version — 0.6.1+ event-history targeting, 0.12.0+ Mini-apps, 0.13.0+ template variables in links, 0.15.0+ Show after + getLastCampaignTouch>
+Amply SDK pinned:          <version — 0.6.1+ event-history targeting, 0.12.0+ Mini-apps, 0.13.0+ template variables in links, 0.15.0+ Show after + getLastCampaignTouch, {{SDK_VERSION}}+ built-in campaigns>
 ```

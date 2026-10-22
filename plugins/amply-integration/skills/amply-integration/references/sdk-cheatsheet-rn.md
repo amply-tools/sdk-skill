@@ -14,7 +14,9 @@ yarn add @amplytools/react-native-amply-sdk@^0.15.1
 
 **Pin `0.15.1` or later** (0.12.0 adds Mini-app campaigns; 0.12.1 rejects a config with a missing key instead of crashing; 0.13.0 fills in template variables in campaign links; 0.15.0 adds Test on device (`handleUrl`), Show after and `getLastCampaignTouch`; 0.15.1 fixes the package's CommonJS entry, which in 0.15.0 lacked those exports for Jest and other non-Metro tools). 0.9.0 fixes a use-after-free that crashed the app on every JS bundle reload in development, plus a gate registered by a previous host parking the next gated call for the full fail-open timeout. **The JS API is unchanged** — the fix is entirely inside the native bridge, so there is nothing to migrate. (Event-history audience targeting needs 0.6.1+ and Mini-app campaigns 0.12.0+, which 0.12.1 satisfies.) The npm package pins the matching native SDK (iOS Pod / Android Gradle) via its podspec / `build.gradle`.
 
-**No `app.json` plugin entry is needed — in any flavour.** Since SDK 0.2.12 the Amply Expo config plugin is a no-op pass-through: React Native autolinking (via the package's `react-native.config.js`) registers the native module on both platforms, including during `expo prebuild`. If the project already lists `"@amplytools/react-native-amply-sdk"` under `expo.plugins` (older integrations did), it is harmless — the SDK just prints a removal notice during `prebuild` — remove the entry next time you touch `app.json`. You still must identify the RN flavour via `references/platform-detection.md` §2 first: it decides whether `expo prebuild` is safe to run at all.
+**Native module: autolinking, every flavour.** React Native autolinking (via the package's `react-native.config.js`) registers the native module on both platforms, including during `expo prebuild`. The Expo config plugin plays no part in that.
+
+**Expo flavours C and D: add the plugin entry.** In the active Expo config (`app.json`, or `app.config.js` / `.ts`), append `"@amplytools/react-native-amply-sdk"` to `expo.plugins` if it is not there — keep every existing entry. It copies **built-in campaign** bundles (`amply-bundle.android.json` / `amply-bundle.ios.json` at the project root) into the native projects at prebuild — SDK {{SDK_VERSION}}+, see `references/built-in-campaigns.md`. Without those files it changes nothing and prints nothing, so add it on every Expo integration; **never remove an existing entry** (earlier versions of this skill said to — that advice is withdrawn). Flavours A and B need no entry: no prebuild runs there, so it would never execute. You still must identify the RN flavour via `references/platform-detection.md` §2 first: it decides whether `expo prebuild` is safe to run at all.
 
 **Build command — always read the project's `package.json` scripts first.** What follows is the *canonical fallback* per flavour. If the project already has `scripts.ios` / `scripts.android` / `scripts.dev:ios` / a `fastlane` lane / `eas build` setup, **prefer that** even if it doesn't match the canonical command (legacy scripts are common and not always worth rewriting during integration).
 
@@ -24,8 +26,8 @@ yarn add @amplytools/react-native-amply-sdk@^0.15.1
 |---|---|---|
 | **A. Pure Bare RN** | Nothing else — autolinking registers the module. Don't touch `app.json`. | `npx react-native run-ios` / `run-android` |
 | **B. Bare RN + Expo Modules** | Nothing else — autolinking registers the module. **Do NOT run `expo prebuild`** — it would wipe the hand-managed `ios/` and `android/` folders. **Do NOT manually `cd ios && pod install` as a first step** — the run script does it. | `npx expo run:ios` / `run:android` |
-| **C. Expo Prebuild Workflow** | No plugin entry needed. `npx expo prebuild --clean` (regenerates `ios/`/`android/`; autolinking registers the module there). | `npx expo run:ios` / `run:android` after `prebuild` |
-| **D. Expo Managed** | No plugin entry needed. | `eas build -p ios` / `-p android` (prebuild + autolinking run in EAS cloud) |
+| **C. Expo Prebuild Workflow** | Add the plugin entry to `app.json` (built-in campaigns). `npx expo prebuild --clean` (regenerates `ios/`/`android/`; autolinking registers the module there). | `npx expo run:ios` / `run:android` after `prebuild` |
+| **D. Expo Managed** | Add the plugin entry to `app.json` (built-in campaigns). | `eas build -p ios` / `-p android` (prebuild + autolinking run in EAS cloud) |
 
 It is common for a Flavour-B project to have **mixed** scripts — e.g. `yarn ios` calls `react-native run-ios` (legacy from initial RN init) while `yarn android` calls `expo run:android` (added later). Both work for Flavour B; don't normalise them as part of the integration. Use whichever the project ships.
 
@@ -211,6 +213,19 @@ if (decision.outcome === 'proceed') {
   showCancelledFeedback();
 }
 ```
+
+## Built-in campaigns (SDK {{SDK_VERSION}}+)
+
+Campaigns that must show on the very first launch, even offline. No JS API — one CLI run per release, from the project root, with the public keys:
+
+```bash
+npx @amplytools/cli bundle --android <android apiKeyPublic> --ios <ios apiKeyPublic>
+```
+
+* **Flavour A / B:** writes `android/app/src/main/assets/amply-bundle.json` and `ios/<App>/amply-bundle.json`. iOS: the file must be added to the app target once (Xcode UI; verify with `npx @amplytools/cli bundle --check` → exit `0`).
+* **Flavour C / D:** writes `amply-bundle.android.json` + `amply-bundle.ios.json` next to `app.json`; the plugin entry above copies them in at `expo prebuild` / EAS Build. No Xcode step. `ios/` and `android/` must be absent or git-ignored, or the CLI writes into them instead.
+
+Commit the file(s) and `amply.json`. Full flow, CI gate, device behaviour and exit codes: `references/built-in-campaigns.md`.
 
 ## Requirements
 

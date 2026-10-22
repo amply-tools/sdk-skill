@@ -104,6 +104,7 @@ The skill takes over from there. It will detect your stack, ask one or two clari
 | `references/audit-template.md` | Skeleton for the `amply-audit.md` output. |
 | `references/codex-tools.md` | Tool-name mapping for Codex agents. |
 | `references/platform-detection.md` | Heuristics + version gates. |
+| `references/built-in-campaigns.md` | Ship campaigns inside the app build for an offline first launch: when to suggest it, the CLI flow per platform and RN flavour, CI check, verification. |
 
 ## Feedback
 

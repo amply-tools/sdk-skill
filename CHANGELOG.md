@@ -2,6 +2,11 @@
 
 All notable changes to `amply-integration` are documented here. Format follows [keepachangelog.com](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **OR groups in campaign targeting** (`references/who-when-what-audit.md` → *OR groups*; `references/amply-mcp.md` → payload traps; `SKILL.md` Phase 1 / Phase 4 / Phase 8 / *Common mistakes*). Who is now a list of groups — AND inside a group, OR between groups, ≤ 10 groups, none empty, ≤ 20 event conditions across all of them. One campaign with groups replaces "two campaigns" when both audiences get the same content, trigger and limits. Never two Countries / Applications / App Language conditions in one group — one condition with every value. MCP: `targeting_groups: [[condition, …], …]` on `campaign_create` / `campaign_update`; `campaign_get` always returns it; a campaign with two or more groups only accepts `targeting_groups` on update; clear with `targeting_groups: []`. No SDK floor; below SDK 0.6.1 a group with an event condition never matches while the other groups still do. Replaces the old "there is no OR" guidance.
+
 ## [0.17.0] — 2026-10-22
 
 ### Added

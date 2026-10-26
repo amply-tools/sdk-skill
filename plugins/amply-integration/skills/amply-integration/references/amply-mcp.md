@@ -112,9 +112,32 @@ Each of these produces a confusing error rather than a clear one.
   on `campaign_update` keeps them**; `{"secondary": []}` (no `primary`) removes them all — a bare
   `{}` is refused by the server's argument check. Create the goals first (`goals_list`, then
   `goal_create` for what's missing).
-* Targeting is a **flat list of conditions, all of which must match** — not OR-ed groups. Two
-  `country` conditions therefore match nobody. Express a range as two conditions
-  (`app_version >= 1.4.0` and `app_version < 1.5.0`).
+* `targeting` is **one group: every condition must match** (AND), whether in one element or
+  several. Two `country` conditions therefore match nobody — list every country in one. Express a
+  range as two conditions (`app_version >= 1.4.0` and `app_version < 1.5.0`).
+* For "this OR that", send **`targeting_groups: [[condition, …], …]`** instead — the same condition
+  objects, **one condition per object**; a user who matches ANY group gets the campaign. Send
+  `targeting` **or** `targeting_groups`, not both (both are accepted only when they say the same
+  thing, which is what carrying `campaign_get`'s output back does). Limits, refused by the server:
+  ≤ 10 groups, none empty; at most **one** `country`, `application` and `app_language` condition per
+  group (alternatives go in its `values`, or in another group); ≤ 20 event conditions across all
+  groups. `targeting_groups: []` = no rules (everyone).
+
+  ```json
+  "targeting_groups": [
+    [ { "event_count": { "event": { "name": "Purchase", "type": "custom" },
+                         "compare_type": "greater", "value": 0 } },
+      { "country": { "type": "include", "values": ["BR"] } } ],
+    [ { "custom_property": { "key": "trial_status", "compare_type": "equal",
+                             "value_type": "string", "value": "ended" } } ]
+  ]
+  ```
+* `campaign_get` **always** returns `targeting_groups`, and `targeting` too only when there is exactly
+  one group. On a campaign with **two or more groups**, `campaign_update` refuses legacy `targeting`
+  **and** the omission of both ("This campaign uses OR groups — read it with campaign_get and send
+  targeting_groups") instead of flattening or clearing them. Clear it with `targeting_groups: []`.
+  No SDK floor: every released SDK evaluates groups; below Amply SDK 0.6.1 a group with an event
+  condition is false and the other groups still decide.
 * Event **parameter filters work** — pass them as `triggering.event.params`, and the same shape
   is accepted by the `event_count` and `event_date` targeting conditions. Values are always
   strings, whatever `value_type` says: pass `"3"`, not `3`. (Until mid-2026 these were accepted

@@ -10,12 +10,12 @@ Amply matches users with a combination of:
 |---|---|
 | **Device properties** (auto-collected) | Countries (include/exclude), OS Version, App Version, App Install Version, Applications, Install Date |
 | **Custom Properties** (set by the app) | Any key the app pushes via `setCustomProperty` / `setCustomProperties`. Operators: `=`, `≠`, `>`, `<`, `≥`, `≤`, `is set`, `is not set` (depending on type) |
-| **Event history** (recorded by the SDK; **Amply SDK 0.6.1+**) | Any event the app fires via `track()`. Two condition kinds: **count** — `how many times` the event has happened (`exactly`, `not exactly`, `more than`, `fewer than`, `at least`, `at most`), plus `has happened` (ever) / `has never happened`; **date** — when it first or last happened (`first occurrence` / `last occurrence`), relative (`more than N days ago` — with an "…or never" variant — / `within the last N days`) or absolute (`before` / `after` a date, whole UTC days). Event property filters narrow which occurrences count — `equals` / `not equals` for text values, plus `greater than` / `less than` for numbers — and apply to both counts and dates. Up to **20 event conditions per campaign**. |
+| **Event history** (recorded by the SDK; **Amply SDK 0.6.1+**) | Any event the app fires via `track()`. Two condition kinds: **count** — `how many times` the event has happened (`exactly`, `not exactly`, `more than`, `fewer than`, `at least`, `at most`), plus `has happened` (ever) / `has never happened`; **date** — when it first or last happened (`first occurrence` / `last occurrence`), relative (`more than N days ago` — with an "…or never" variant — / `within the last N days`) or absolute (`before` / `after` a date, whole UTC days). Event property filters narrow which occurrences count — `equals` / `not equals` for text values, plus `greater than` / `less than` for numbers — and apply to both counts and dates. Up to **20 event conditions per campaign**, counted across all OR groups. |
 | **Campaign history** (recorded by the SDK) | Whether this user has seen another campaign: `seen` how many times, `first seen` / `last seen` when. Use it to keep campaigns from stacking ("not shown the welcome sheet yet", "saw the paywall more than 7 days ago"). |
 
 **Event-history caveats for the audit:**
 
-- Only apps running **Amply SDK 0.6.1+** match event conditions — devices on older SDK builds simply don't match those campaigns. For fleets with older installed builds, counter Custom Properties remain the fallback (see `custom-properties.md` § Counter properties).
+- Only apps running **Amply SDK 0.6.1+** match event conditions — on older SDK builds an event condition is false, so the campaign (or, with OR groups, the group that holds it) doesn't match; the other groups still do. For fleets with older installed builds, counter Custom Properties remain the fallback (see `custom-properties.md` § Counter properties).
 - History starts the first time the Amply SDK ran **on that device** — for a new install that is the install, for an app that adds Amply later it is the update that shipped the SDK. Events fired earlier don't exist, and history is per device: an action the same person took on another phone is not visible. Evaluation happens on-device and works offline.
 - **Install Date has the same origin.** It is when Amply first ran on the device, not when the app was installed. For an app that added Amply recently, "installed more than 30 days ago" matches nobody until 30 days after that update — pick the threshold with that in mind.
 
@@ -37,7 +37,14 @@ Amply matches users with a combination of:
 
 **The trigger-event trap.** The triggering occurrence is recorded *before* the audience is evaluated. A condition on the **same event as the trigger** therefore always sees it as "just now": `last happened more than N days ago` on the trigger event never matches, and a count includes the current occurrence (`at least 5` fires on the 5th). For "came back after a gap", put the recency condition on a *different* event than the trigger (the table's last row).
 
-**No OR.** All Who conditions combine with AND. "Bought once OR NPS ≥ 9" is two campaigns, not one.
+**OR groups.** Who is a list of groups: inside a group every condition must match (AND); a user gets the campaign when they match **any** group (OR). No conditions at all = everyone. Admin: the `AND | OR` switch between two rules splits or joins groups, **Add OR group** starts an empty one. MCP: `targeting_groups` (see `amply-mcp.md` → payload traps).
+
+- **Use OR groups** when different kinds of users should get the **same** campaign — same content, trigger and limits, one set of stats. "Paid in Brazil OR trial ended" is one campaign with two groups: `[Purchase happened ≥ 1, country = BR]` OR `[trial_status = "ended"]`. Use **separate campaigns** when the content, trigger or limits differ, or when the audiences are meant to be compared.
+- **Don't reach for a group when a list does it.** "Brazil or Mexico" is one country condition with both values, not two groups. Never two Countries (or Applications, or App Language) conditions in one group — that is AND, "in both lists at once", and the server refuses it; one condition with every value.
+- Version conditions are the exception: two in one group make a range (`app_version >= 2.0.0` AND `< 3.0.0`).
+- Limits: **≤ 10 groups**, none empty; **≤ 20 event conditions** across all groups (one repeated in two groups counts twice).
+- **No SDK floor of its own** — every released SDK evaluates OR groups. But below **SDK 0.6.1** a group holding an event condition never matches; event-free groups still do. If the fleet has old builds, decide whether that group losing them is acceptable or whether it needs a Custom Property fallback.
+- **Verifying:** with *Check targeting* on (`campaign_debug_link(…, check_targeting: true)`), the phone lists all the groups as **one** line, `Any of N groups: (…) OR (…)`, ✓ when any group matches. That line is the whole OR, not several AND-ed conditions; a ✗ means no group matched.
 
 **Not available as built-in targeting:**
 
@@ -195,7 +202,7 @@ For each Amply core use case from the product overview, the audit should produce
 
 ### 6. RateReview after positive moment
 
-- **Who** — event condition `Purchase` happened `at least` 1 time (Amply SDK 0.6.1+; below that, `total_purchases >= 1` counter). Targeting has no OR — an `nps_score >= 9` audience is a second campaign.
+- **Who** — event condition `Purchase` happened `at least` 1 time (Amply SDK 0.6.1+; below that, `total_purchases >= 1` counter). Happy non-payers too? Add an OR group `nps_score >= 9` to the same campaign — one campaign, two groups, not a second campaign.
 - **When** — event such as `PurchaseCompleted` or `LessonCompleted`, `Repeat Rule: on 1`, `Frequency Limit: lifetime 1`.
 - **What** — `RateReview`.
 - **Goal** — none: the store reports no review back. The one campaign kind that stays unbound.

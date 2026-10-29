@@ -4,6 +4,8 @@ All notable changes to `amply-integration` are documented here. Format follows [
 
 ## [Unreleased]
 
+## [0.18.1] — 2026-10-29
+
 ### Added
 - **Overlay (website)** (`SKILL.md` → *Overlay (website)* (new) / *When to Use* / *Common mistakes* / triggers; `references/amply-mcp.md` → tools). Setting up Overlay on the app's website over the Amply MCP: `web_widget_get` / `web_widget_save` (a save goes live within about a minute — confirm first), the snippet in the `<head>` of every page with a download button, then a scan of the website's code: direct App Store / Google Play links stay as they are, **every other download button gets `data-amply-download`** (the site's own `/get` page, OneLink / Branch / Adjust / Firebase links, short links, buttons without `href`), `data-amply-ignore` leaves a store link out, and the widget needs `ios_app_id` and `android_package` for marked buttons to know where to go. The user tests it from a Threads post on a phone.
 

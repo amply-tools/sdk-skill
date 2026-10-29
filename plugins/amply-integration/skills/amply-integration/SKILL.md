@@ -1,6 +1,6 @@
 ---
 name: amply-integration
-description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model — and when designing or configuring an Amply campaign for an app that already has the SDK — who should see it, when, and what the targeting conditions are. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties", "design a campaign", "set up a campaign", "campaign targeting", "who should see it", "настроить кампанию", "придумать кампанию", "таргетинг", "кому показать", "campaign goal", "conversions", "which campaign drove purchases", "цель кампании", "build a mini-app", "make a bottom sheet", "make a story", "сделай шторку", "сделай сторис", "собери мини-апп", "built-in campaign", "show it on first launch offline", "amply-bundle.json", "amply bundle", "встроенная кампания", "показать без интернета".
+description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model — and when designing or configuring an Amply campaign for an app that already has the SDK — who should see it, when, and what the targeting conditions are. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties", "design a campaign", "set up a campaign", "campaign targeting", "who should see it", "настроить кампанию", "придумать кампанию", "таргетинг", "кому показать", "campaign goal", "conversions", "which campaign drove purchases", "цель кампании", "build a mini-app", "make a bottom sheet", "make a story", "сделай шторку", "сделай сторис", "собери мини-апп", "built-in campaign", "show it on first launch offline", "amply-bundle.json", "amply bundle", "встроенная кампания", "показать без интернета", "Overlay", "Amply Web", "in-app browser", "App Store link not opening in Instagram", "link in bio", "download button on my website".
 ---
 
 # Amply Integration
@@ -30,6 +30,7 @@ This skill walks the user through an opinionated, end-to-end integration:
 - The user wants a product-analytics audit oriented toward Amply targeting.
 - The user wants to **build a Mini-app** — a bottom sheet, card, story, onboarding or survey screen Amply shows in the app — with the Amply MCP. Go straight to `references/mini-app-authoring.md`.
 - The app must show a campaign on its **very first launch, even offline** (onboarding, first-launch paywall, consent) — **built-in campaigns**, `amply-bundle.json`, `npx @amplytools/cli bundle`. Go to `references/built-in-campaigns.md`.
+- The user wants **Overlay** on the app's **website** — the script that gets visitors from Threads, Instagram, TikTok or Facebook out of the in-app browser to the App Store or Google Play. No app SDK involved; go to *Overlay (website)* below.
 - The SDK is already integrated and the user wants to **design or configure a campaign** (who sees it, when, what it does). Skip the integration phases and go straight to `references/who-when-what-audit.md` — start from its *Designing a condition* rules before proposing any new Custom Property or app change.
 
 **Don't use for:** debugging Amply backend issues, building marketing copy about Amply, or generic mobile analytics work that has nothing to do with Amply.
@@ -397,6 +398,25 @@ Run this **only** on a successful finish **and** only if `feedbackConsent == yes
    ```
 5. Set `telemetrySent = true`. Ignore the HTTP response — never retry, never surface an error. The integration is already complete; this is a fire-after-success ping.
 
+## Overlay (website)
+
+Overlay is a script for the app's **website**, not the app. Store links tapped inside a social network's in-app browser often do nothing; Overlay shows the visitor how to open the page in the phone's real browser. It reacts to download buttons only, so the work is finding every one of them.
+
+1. **Read or create the widget over the Amply MCP.** `projects_list` → `web_widget_get`. When `web_widget` is null, create it with `web_widget_save`. A save is live on every site carrying the snippet within about a minute, so state what you are saving and get the user's OK first (`interactive`), or record it as a recommendation without saving (`autopilot`).
+2. **Paste the `snippet`** from the result into the `<head>` of every page that has a download button — the shared layout or template, not one page.
+3. **Scan the website's code for download buttons** — "Download", "Get the app", App Store / Google Play badges, header, hero and footer CTAs.
+   - A link straight to the store (`apps.apple.com`, `itunes.apple.com`, `itms-apps:`, `play.google.com/store`, `market:`) — **leave it alone**; it already works.
+   - **Every other download button gets `data-amply-download`**: one that opens the site's own page (`/get`, `/download`), a smart or attribution link (AppsFlyer OneLink, Branch, Adjust, Firebase), a short link, or a button with no `href` that runs JavaScript. Any element works — `a`, `button`, `div`:
+
+     ```html
+     <a href="/get" data-amply-download>Download</a>
+     ```
+
+   - A store link that must **not** show the hint gets `data-amply-ignore`.
+   - A site built in a no-code builder: tell the user where to add the custom attribute in that builder, button by button.
+4. **Make sure the widget knows the store pages.** A marked button without a store link of its own opens the store from the widget: `ios_app_id` (the digits in the App Store URL — set it with `web_widget_save`) and `android_package` (taken from the project's Android application — `application_create` if there is none). Check both in `web_widget_get`; a missing one means that platform's marked buttons have nowhere to go.
+5. **Hand off the test — it needs a phone.** Tell the user: post a link to the website in a Threads post (or reply), open it in Threads on an iPhone and on an Android phone, tap each kind of Download button, follow the hint into the real browser, tap Download again — the store page opens. Afterwards `web_widget_get` lists the site under `domains` and counts the taps in `stats_7d`.
+
 ## Quick reference — SDK by platform
 
 | Detected | Package | Cheatsheet |
@@ -438,6 +458,7 @@ Run this **only** on a successful finish **and** only if `feedbackConsent == yes
 | Shipping a campaign with no goal. | Its stats then show impressions only, and nobody can tell whether it worked. Bind a primary goal with a window that fits the campaign (Phase 4 → Goal). |
 | Forwarding incoming links to `handleUrl` from two places (e.g. `+native-intent` **and** a `Linking` listener), or not at all. | One forwarder, on cold start and while running (Phase 6c). Without it the Test-on-device QR opens the app and shows nothing. |
 | Registering a second system-events listener on iOS / Android / KMP to forward campaign events. | The SDK keeps one; the new one silently replaces the app's existing listener. Add the forwarding inside the existing one. |
+| Installing Overlay with only the snippet on a website whose Download buttons go to `/get`, a smart link (OneLink, Branch, Adjust, Firebase) or a short link. | Those buttons never show the hint. Add `data-amply-download` to every download button that is not a direct App Store / Google Play link, and make sure the widget has `ios_app_id` and `android_package` (*Overlay (website)*). |
 | Assuming Install Date is the app install date. | It is when Amply first ran on the device. For an app that added Amply recently, "installed more than 30 days ago" matches nobody for 30 days. |
 
 ## Feedback

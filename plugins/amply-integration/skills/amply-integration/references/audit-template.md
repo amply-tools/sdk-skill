@@ -64,7 +64,7 @@ Detected vendors:
 
 ### 2.1 Events detected
 
-Decision values: `forward-translated` / `forward-translated-renamed` / `skip-system-overlap` / `skip-property-change-event` / `skip-pii` / `skip-bi-only` (with drop-keys note when applicable).
+Decision values: `forward-translated` / `forward-translated-renamed` / `skip-system-overlap` / `skip-property-change-event` / `skip-pii` / `skip-bi-only` / `skip-frequent` (with drop-keys note when applicable).
 
 | event_name | count | sample file:line | property keys (types) | Decision | Why |
 |---|---|---|---|---|---|

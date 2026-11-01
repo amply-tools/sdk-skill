@@ -31,6 +31,9 @@ For each detected call from existing analytics (event-track or property-write), 
 6. **BI-only / server-driven / batched** — event fires only from server-side, or from a wrapper that batches with significant delay (see `references/analytics-detection.md` § "When NOT to extend the existing wrapper").
    → `skip-bi-only` — campaigns need near-real-time triggering; batched events break the model.
 
+6b. **Frequent or debug-only** — fires on a timer, in a loop, on scroll or on every frame/tick, or is a debug-only name (`debug_*`, `test_*`). Campaigns never target it and it would flood Amply's on-device history.
+   → `skip-frequent` — drop. With `eventPathway = plugin` it maps to `filter` (`references/amplitude-plugin.md`).
+
 7. **High-leverage list match** — name (case-insensitive, after normalisation) matches a high-leverage pattern: `signup`, `paywall_view`, `paywall_shown`, `purchase`, `trial_start`, `trial_end`, `onboarding_complete`, `content_unlock`, `share`, `app_open` (note overlap with §1), `error`.
    → `forward-translated` + mark for campaign use in audit § Who/When/What.
 

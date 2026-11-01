@@ -3,7 +3,7 @@
 For an app that tracks with Amplitude, Amply can read what the app already sends there, with one line and no wrapper:
 
 ```ts
-import { amplyPlugin } from '@amplytools/react-native-amply-sdk';
+import Amply, { amplyPlugin } from '@amplytools/react-native-amply-sdk';
 
 amplitude.add(amplyPlugin());
 ```
@@ -32,7 +32,7 @@ If the app is on `@amplitude/analytics-react-native` below 1.5.16, or on an Ampl
 
 | Condition | How to check |
 |---|---|
-| Versions fit (table above) | `package.json`, lock file |
+| Versions fit (table above) | `package.json`, lock file. For a project with no Amply installed yet, judge the version the skill will install (the cheatsheet pin, 0.17.0 or later), not the absence of one |
 | One Amplitude instance | no `createInstance(...)`, or it is clear which one is the main one |
 | The plugin can be added before the first meaningful event | `amplitude.add(...)` fits next to `amplitude.init(...)` |
 | Amplitude is the main path of events | most tracking calls go through it |
@@ -40,17 +40,19 @@ If the app is on `@amplitude/analytics-react-native` below 1.5.16, or on an Ampl
 | Frequent events are named | loops, scroll, timers, polling: out through `filter` |
 | `userId` policy is chosen | the app already calls `Amply.setUserId` with its own id, or rewrites `user_id` in its own Amplitude plugin: `syncUserId: false` |
 | No Amplitude enrichment plugin of the app's own that is async | the app has none, or `syncUserId: false` (see *Audit notes*) |
-| Nothing already mirrors `track` to Amply | grep the app's source for `Amply.track`, `amply.track`, `trackEvent` and `trackGated`. A plain `Amply.track` / `amply.track` of a moment Amplitude also carries is a mirror; a `trackGated` call is not. Third-party `trackEvent` calls (e.g. `Adjust.trackEvent()`) do not count, only calls on the Amply SDK do. A mirror means `eventPathway = wrapper`, plus an Observation naming the `file:line` hits. See *An app that already sends to Amply* |
+| Nothing already mirrors `track` to Amply | first find every import of the Amply package (`@amplytools/react-native-amply-sdk`, default or named, e.g. `import { track } from '...'`) and the local names it brings in, then grep the calls of those names (`Amply.track`, `amply.track`, a bare `track(...)`, `trackEvent`, `trackGated`), including inside a sink or wrapper file. A plain `Amply.track` / `amply.track` of a moment Amplitude also carries is a mirror; a `trackGated` call is not. Third-party `trackEvent` calls (e.g. `Adjust.trackEvent()`) do not count, only calls on the Amply SDK do. A mirror means `eventPathway = wrapper`, plus an Observation naming the `file:line` hits. See *An app that already sends to Amply* |
 
 ## New integration
 
-Under `plugin` there is no plain `Amply.track` for anything Amplitude carries, in new code or in an existing wrapper (`wrapperStrategy = extend` still applies to the rest of the wrapper). An event Amplitude does not carry either goes through Amplitude first, or stays a direct Amply call if the audit decides so. Initialise Amply as in the cheatsheet (`await Amply.initialize(...)`), then add the plugin next to `amplitude.init`:
+Under `plugin` there is no plain `Amply.track` for anything Amplitude carries, in new code or in an existing wrapper (`wrapperStrategy = extend` still applies to the rest of the wrapper). An event Amplitude does not carry either goes through Amplitude first, or stays a direct Amply call if the audit decides so. Initialise Amply as in the cheatsheet (`await Amply.initialize(...)`), then add the plugin beside `amplitude.init`:
 
 ```ts
 amplitude.add(amplyPlugin({ filter, transform, userProperties }));
 ```
 
-Events that happen before Amply has started wait in a short queue (100 items, oldest events dropped first) and go in order once it is up. Adding the plugin twice does nothing the second time.
+The line does not have to wait for `Amply.initialize`: events, id changes and copied user properties wait, in order, up to 100 items, until Amply starts. So no existing synchronous function has to become async for the plugin.
+
+If more than 100 items pile up before Amply starts, the oldest events are dropped first. Adding the plugin twice does nothing the second time.
 
 The wrapper from `wrapper-patterns.md` is then needed only for what the plugin does not do (below). If the app has nothing of that kind, no wrapper is written.
 
@@ -81,7 +83,7 @@ The decisions of Phase 3 become the plugin's options:
 
 | Audit decision | Option |
 |---|---|
-| `skip-*` (system overlap, BI-only, a frequent event) | `filter: (e) => !SKIPPED.has(e.event_type)` |
+| `skip-*` (system overlap, BI-only, `skip-frequent`) | `filter: (e) => !SKIPPED.has(e.event_type)` |
 | A `trackGated` moment that the app also sends to Amplitude | the same `filter`; a gated moment Amplitude never sees needs no entry |
 | `skip-pii` for a property outside the built-in PII list | `transform` that returns `properties` without it |
 | A user property used for targeting | `userProperties: ['plan', 'subscription_status']` (a list of keys, or a function; there is no "all") |
@@ -109,13 +111,13 @@ Keep these in the wrapper (or in the app), and take the mirrored `track` out of 
 
 ## Audit notes and checks
 
-Write these into the audit as Observations (§ 9) when they apply. Do not rewrite the app's code for them.
+Write these into the audit as Observations (§ 9) when they apply, with the exact change. `autopilot` does not edit the app's code for them; `interactive` offers the change.
 
-1. **`reset()` right after a `track` that matters.** If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must `await amplitude.track(x).promise` first. Without the `await`, Amplitude applies the event on a timer, after the user is already cleared, so the event reaches Amply without a user, looking like an event after logout. The audit flags every such call site with `file:line`, and the fix is the `await` at that site.
+1. **`reset()` right after a `track` that matters.** If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must `await amplitude.track(x).promise` first. Without the `await`, Amplitude applies the event on a timer, after the user is already cleared, so the event reaches Amply without a user, looking like an event after logout. The audit flags every such call site with `file:line`. In `autopilot` the audit gets an Observation with the exact change (the `await` at that site) and the skill does not edit the site; in `interactive` it offers the change.
 2. **Its own async Amplitude plugin, or a rewritten `user_id`.** If the app has an enrichment plugin of its own that does asynchronous work, or one that rewrites `user_id`, the plugin cannot always tell which user an event belongs to. Pass `syncUserId: false`, keep `Amply.setUserId` calls in the app, and put an audit note saying why.
 3. **Logout without any event.** If the user logs out and the app is closed before another event, Amply keeps the old id until the next sign-in. The app can call `Amply.setUserId(null)` itself for exactly this case (logout followed by closing the app with no further event); it is safe alongside the plugin.
 4. **Expo Go.** There is no native module in Expo Go: the plugin warns once and then does nothing.
-5. **A frequent event** found in the audit goes into `filter`, not into a "later" list.
+5. **A frequent event** found in the audit is `skip-frequent` and goes into `filter`, not into a "later" list.
 
 ## What to say to the user
 
@@ -132,4 +134,4 @@ When the pathway is `wrapper`, do not mention the plugin unless the user asks; p
 - The Amply admin shows an Amplitude event arriving after one tracked action (Phase 7; this is the human's check, as always).
 - A `filter`-ed event is absent from Amply and still present in Amplitude.
 - Logout changes the user once, and a cold start without a signed-in user does not call `setUserId`.
-- With the app's own `reset()` call sites from note 1 fixed, the events before logout carry the user.
+- Every `reset()` call site from note 1 has its Observation in the audit (and, if the user accepted the change in `interactive`, the `await`); the events before logout carry the user only after that change.

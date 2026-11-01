@@ -86,5 +86,7 @@ override fun onEvent(event: EventInterface) {
 
 Swift is the same shape (`func onEvent(event: EventInterface)`); RN reads `event.properties`.
 
+**With the Amplitude plugin on** (`references/amplitude-plugin.md`), what you track into Amplitude here goes straight back into Amply as a custom event, because `AmplyCampaignShown` is not a reserved name. Exclude the exact forwarded names in the plugin's `filter` (e.g. `filter: (e) => !e.event_type.startsWith('Amply')`; read the names the app really sends, don't assume the prefix).
+
 **Expect the two tools to differ.** Their windows, user identity and offline/sampling rules differ;
 compare campaigns inside one tool, don't reconcile totals across them.

@@ -36,15 +36,15 @@ If the app is on `@amplitude/analytics-react-native` below 1.5.16, or on an Ampl
 | One Amplitude instance | no `createInstance(...)`, or it is clear which one is the main one |
 | The plugin can be added before the first meaningful event | `amplitude.add(...)` fits next to `amplitude.init(...)` |
 | Amplitude is the main path of events | most tracking calls go through it |
-| Gated calls will not double | `trackGated` calls Amply directly and is not replaced by the plugin. If the same moment is also sent to Amplitude, exclude it in `filter` |
+| Gated calls will not double | `trackGated` calls Amply directly and is not replaced by the plugin. If the same moment is also sent to Amplitude, exclude it in `filter`; if it is not sent to Amplitude, no filter is needed |
 | Frequent events are named | loops, scroll, timers, polling: out through `filter` |
 | `userId` policy is chosen | the app already calls `Amply.setUserId` with its own id, or rewrites `user_id` in its own Amplitude plugin: `syncUserId: false` |
 | No Amplitude enrichment plugin of the app's own that is async | the app has none, or `syncUserId: false` (see *Audit notes*) |
-| Nothing already mirrors `track` to Amply | otherwise see *An app that already sends to Amply* |
+| Nothing already mirrors `track` to Amply | grep the app's source for `Amply.track`, `amply.track`, `trackEvent` and `trackGated`. A call outside the gated path (a gate-able moment is allowed to stay) is a mirror: `eventPathway = wrapper`, plus an Observation naming the `file:line` hits. See *An app that already sends to Amply* |
 
 ## New integration
 
-Do not generate `Amply.track` calls for events Amplitude already carries. Initialise Amply as in the cheatsheet (`await Amply.initialize(...)`), then add the plugin next to `amplitude.init`:
+Do not generate `Amply.track` calls for events Amplitude already carries, and do not add any to an existing wrapper (`wrapperStrategy = extend` still applies to the rest of the wrapper). Initialise Amply as in the cheatsheet (`await Amply.initialize(...)`), then add the plugin next to `amplitude.init`:
 
 ```ts
 amplitude.add(amplyPlugin({ filter, transform, userProperties }));
@@ -84,7 +84,8 @@ The decisions of Phase 3 become the plugin's options:
 | `skip-*` (system overlap, BI-only, a frequent event), `trackGated` moments | `filter: (e) => !SKIPPED.has(e.event_type)` |
 | `skip-pii` for a property outside the built-in PII list | `transform` that returns `properties` without it |
 | A user property used for targeting | `userProperties: ['plan', 'subscription_status']` (a list of keys, or a function; there is no "all") |
-| A screen view is wanted | `autocapture: ['[Amplitude] Screen Viewed']` |
+| A screen view is wanted | `autocapture: ['[Amplitude] Screen Viewed']`. The `[Amplitude] ` prefix is stripped from the name and from property keys **before** `filter` and `transform` run: the event reaches Amply as `Screen Viewed` with key `Screen Name`, and that is the name for campaign triggers and for `filter` / `transform` |
+| The app forwards Amply system events into its analytics (`campaign-attribution.md`) | exclude the forwarded names in `filter`, e.g. `filter: (e) => !e.event_type.startsWith('Amply')`. Read the names the app really forwards; do not assume the prefix |
 | The app manages the user id itself | `syncUserId: false`, and the app keeps calling `Amply.setUserId` |
 | A name must stay PascalCase | `transform` with `pascalCaseEventName` (above) |
 | Debugging a gap | `debug: true` (logs what is skipped and why) |
@@ -102,8 +103,8 @@ Keep these in the wrapper (or in the app), and take the mirrored `track` out of 
 - `trackGated` and `registerGate`.
 - The deeplink listener and `handleUrl` forwarding.
 - Custom Properties that do not come from Amplitude user properties (RevenueCat state, locale, install date).
-- Forwarding Amply system events to the app's analytics (`campaign-attribution.md`).
-- `Amply.setUserId` / `clearCustomProperties` when `syncUserId: false`.
+- Forwarding Amply system events to the app's analytics (`campaign-attribution.md`). **This must be excluded in `filter`:** a name such as `AmplyCampaignShown` tracked into Amplitude would come straight back into Amply as an ordinary custom event (it is not a reserved name). Open the app's forwarding code, collect the exact names it sends, and write them into `filter` (`!e.event_type.startsWith('Amply')` only if that is really their shape).
+- `Amply.setUserId` / `clearCustomProperties`: with the default `syncUserId: true` the plugin follows Amplitude's user id (login and logout), so do **not** add a `setUserId` call at login or logout; only when `syncUserId: false` do they stay in the app. `clearCustomProperties()` at logout is still the app's.
 
 ## Audit notes and checks
 

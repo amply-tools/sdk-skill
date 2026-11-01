@@ -215,7 +215,7 @@ For every call site, capture **file:line plus the property keys and types passed
 
 **System-event overlap is the first rule the events tree applies.** Project events that overlap with Amply's auto-fired system events (`session_start` / `app_open` → `SessionStarted`, etc. — see `references/system-events.md`) are dropped, not mirrored. This is **not** optional — duplicates make campaign evaluation noisy.
 
-**Amplitude: plugin or wrapper.** If Amplitude is detected, run the checklist in `references/amplitude-plugin.md` and set `eventPathway`. `plugin` when `@amplitude/analytics-react-native` ≥ 1.5.16 and Amply SDK ≥ 0.17.0 (React Native / Expo only — there is no native adapter yet, so Swift / Kotlin / KMP apps are `wrapper`) and every other row holds; otherwise `wrapper`, with the failing row written into the audit. An app that already mirrors `track` to Amply is **not** switched in `autopilot` (the plugin and the mirroring together would double every event, and live campaigns may depend on today's names): it stays `wrapper` and the plugin goes to § 9 as an Observation; `interactive` may offer the replacement.
+**Amplitude: plugin or wrapper.** If Amplitude is detected, first grep the app for an existing mirror (`Amply.track`, `amply.track`, `trackEvent`, `trackGated`); a hit outside a genuine gate moment sets `eventPathway = wrapper` and adds an Observation. Then run the checklist in `references/amplitude-plugin.md` and set `eventPathway`. `plugin` when `@amplitude/analytics-react-native` ≥ 1.5.16 and Amply SDK ≥ 0.17.0 (React Native / Expo only — there is no native adapter yet, so Swift / Kotlin / KMP apps are `wrapper`) and every other row holds; otherwise `wrapper`, with the failing row written into the audit. An app that already mirrors `track` to Amply is **not** switched in `autopilot` (the plugin and the mirroring together would double every event, and live campaigns may depend on today's names): it stays `wrapper` and the plugin goes to § 9 as an Observation; `interactive` may offer the replacement.
 
 Decide whether the project already has an analytics wrapper. **Default**: extend the existing wrapper. **Switch to a new wrapper** only if the existing one is server-only, BI-only, vendor-schema-typed in a way that doesn't translate, consent-gated in a way that would block Amply targeting events, or too high-volume to mirror without performance cost. State the exception you found.
 
@@ -231,7 +231,7 @@ What you do here, in this exact order:
 
 1. **PII strip**: identify keys in the existing analytics layer that contain PII (email, phone, address, raw IP, full name, government IDs, raw payment details) — strip / hash them in the wrapper before any Amply call.
 2. **Opaque user IDs**: confirm that whatever the project passes to `setUserId(userId:)` is opaque (not email/phone). If not, route through a hash with a stable, off-device salt.
-3. **Logout hygiene**: wire `setUserId(userId: nil)` + `clearCustomProperties()` on logout. If the app has no logout flow yet, see `references/lifecycle-and-state.md` for the "no login yet" recipe.
+3. **Logout hygiene** (with `eventPathway = plugin` and `syncUserId` on, the plugin follows the user id — add no `setUserId` call): wire `setUserId(userId: nil)` + `clearCustomProperties()` on logout. If the app has no logout flow yet, see `references/lifecycle-and-state.md` for the "no login yet" recipe.
 4. **ATT** (iOS only): no action needed — the SDK reads `ATTrackingManager.trackingAuthorizationStatus()` automatically and ships IDFA only when authorised. If the app has an ATT prompt for other reasons (AdMob etc.), nothing additional is needed for Amply.
 5. **Construction policy**: decide whether your app should construct `Amply(config:)` unconditionally (default — right for ~all apps) or only for certain users (strict — kids' mode, free tier without campaign features, etc.). If strict, the rule is one `if` around the constructor call; no runtime consent flag inside the wrapper.
 
@@ -241,7 +241,7 @@ In `autopilot`, default to construction-unconditional plus the PII / opaque-id /
 
 Build the two audit tables produced by Phase 2 — events (§ 2.1) and user-property writes (§ 2.2). For each row, the Decision and Why come from the decision trees in `references/event-naming.md` and `references/property-writes.md`.
 
-**Do not** rename existing events in the project — translate to PascalCase inside the wrapper for the Amply call only. (With `eventPathway = plugin` names reach Amply as Amplitude has them, no translation; an app that already sends PascalCase keeps it with `transform`. The Phase 2 decisions compile into plugin options — `references/amplitude-plugin.md`.)
+**Do not** rename existing events in the project — translate to PascalCase inside the wrapper for the Amply call only. (With `eventPathway = plugin` names reach Amply as Amplitude has them, no translation; an autocaptured `[Amplitude] Screen Viewed` loses its prefix and arrives as `Screen Viewed` with key `Screen Name`, which is the name for triggers and `filter`; an app that already sends PascalCase keeps it with `transform`. The Phase 2 decisions compile into plugin options — `references/amplitude-plugin.md`.)
 
 Inventory user properties → Amply Custom Properties. Allowed value types: **`String` / `Number` / `Boolean` / `DateTime`** for native SDKs; **`string | number | boolean` only** for the RN SDK (no DateTime via the RN public surface). Anything else → flag as not-supported or apply array-recipe (see `references/custom-properties.md`).
 
@@ -275,7 +275,7 @@ Save findings as `amply-audit.md` (template: `references/audit-template.md`). Th
 
 With `eventPathway = plugin`, do not generate `Amply.track` calls for events Amplitude carries: initialise Amply, then add `amplitude.add(amplyPlugin({ filter, transform, userProperties }))` next to `amplitude.init`. The wrapper keeps only what the plugin does not do (`trackGated`, deeplink listener, Custom Properties from other sources, system-event forwarding). `references/amplitude-plugin.md`.
 
-Otherwise use the templates in `references/wrapper-patterns.md`. Generate / patch wrapper code; preserve existing event shape; add the **platform-correct Amply call**:
+With `eventPathway = plugin`, `wrapperStrategy = extend` adds **no** `Amply.track` to the wrapper, and Amply system events the app forwards into Amplitude are excluded in `filter`. Otherwise use the templates in `references/wrapper-patterns.md`. Generate / patch wrapper code; preserve existing event shape; add the **platform-correct Amply call**:
 
 - **RN/Expo** — `await Amply.track({ name, properties })` (object payload).
 - **iOS Swift** — `amply.track(event: "...", properties: [...])` on the held instance.
@@ -319,7 +319,7 @@ Add the package via the project's manager (`yarn add` / Gradle dep / Pod / SPM).
 
 ### Phase 5.5 — Lifecycle & state
 
-See `references/lifecycle-and-state.md`. Hold strong references to the Amply instance and the deeplink listener (the SDK does not retain listeners). Initialise Amply **before** the first `track` / `setCustomProperties` call. On login/logout call `setUserId(...)` / `setUserId(null) + clearCustomProperties()`.
+See `references/lifecycle-and-state.md`. Hold strong references to the Amply instance and the deeplink listener (the SDK does not retain listeners). Initialise Amply **before** the first `track` / `setCustomProperties` call. On login/logout call `setUserId(...)` / `setUserId(null) + clearCustomProperties()` — except with `eventPathway = plugin` and `syncUserId` on, where the plugin does the `setUserId` part and the app only clears Custom Properties.
 
 ### Phase 6 — Deeplink listener wiring
 

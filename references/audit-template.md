@@ -96,7 +96,7 @@ Decision values: `forward-translated` / `forward-translated-renamed` / `skip-sys
 
 ### 2.3 Wrapper recommendation
 
-- **Action:** extend existing wrapper at `src/analytics/index.ts`.
+- **Action:** extend existing wrapper at `src/analytics/index.ts` (with `eventPathway = plugin`: no `Amply.track` added to it).
 - **Reason:** the codebase already routes every analytics call through one module, with a typed event catalogue.
 
 ## 3. Custom Properties to set

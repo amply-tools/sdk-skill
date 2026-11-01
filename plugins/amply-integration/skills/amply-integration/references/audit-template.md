@@ -91,7 +91,7 @@ Decision values: `forward-translated` / `forward-translated-renamed` / `skip-sys
 
 - **Pathway:** `plugin` | `wrapper` — if `wrapper`, the checklist row that failed (version, native app, second instance, existing mirroring, …).
 - **Plugin options chosen:** `filter` (skipped events), `transform` (renames / dropped properties), `userProperties` (keys), `autocapture`, `syncUserId`.
-- **Flagged call sites:** `amplitude.reset()` right after a `track` that matters (`file:line`: bounded wait before it, see the reference); code that reads `.promise` as delivery to Amplitude; PII-like keys the plugin does not block (`first_name`, `phone_number`, …) handled in `transform`; own async Amplitude plugin or rewritten `user_id` (`syncUserId: false`).
+- **Flagged call sites:** `amplitude.reset()` or a direct `Amply.setUserId` / `setCustomProperty` / `clearCustomProperties` right after a `track` that matters; a logout path that does not clear Amplitude's user (`syncUserId: false`); property keys over 32 characters the old wrapper cut; an own PascalCase helper that may go unused (`file:line`: bounded wait before it, see the reference); code that reads `.promise` as delivery to Amplitude; PII-like keys the plugin does not block (`first_name`, `phone_number`, …) handled in `transform`; own async Amplitude plugin or rewritten `user_id` (`syncUserId: false`).
 - Details: `references/amplitude-plugin.md`.
 
 ### 2.3 Wrapper recommendation

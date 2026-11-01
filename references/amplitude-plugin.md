@@ -38,7 +38,7 @@ If the app is on `@amplitude/analytics-react-native` below 1.5.16, or on an Ampl
 | Amplitude is the main path of events | most tracking calls go through it |
 | Gated calls will not double | `trackGated` calls Amply directly and is not replaced by the plugin. If the same moment is also sent to Amplitude, exclude it in `filter`; if it is not sent to Amplitude, no filter is needed |
 | Frequent events are named | loops, scroll, timers, polling: out through `filter` |
-| `userId` policy is chosen | the app already calls `Amply.setUserId` with its own id, or rewrites `user_id` in its own Amplitude plugin: `syncUserId: false` |
+| `userId` policy is chosen | the app already calls `Amply.setUserId` with its own id, or rewrites `user_id` in its own Amplitude plugin: `syncUserId: false`. Also read the app's logout path: if it does not clear Amplitude's user (no `amplitude.reset()`, no `setUserId(undefined)`), the plugin never sees a logout, so `syncUserId: false` and the app keeps its `Amply.setUserId`. Do **not** add `reset()` to fix it: it rotates Amplitude's device id, which attribution tools read |
 | No Amplitude enrichment plugin of the app's own that is async | the app has none, or `syncUserId: false` (see *Audit notes*) |
 | Nothing already mirrors `track` to Amply | first find every import of the Amply package (`@amplytools/react-native-amply-sdk`, default or named, e.g. `import { track } from '...'`) and the local names it brings in, then grep the calls of those names (`Amply.track`, `amply.track`, a bare `track(...)`, `trackEvent`, `trackGated`), including inside a sink or wrapper file. A plain `Amply.track` / `amply.track` of a moment Amplitude also carries is a mirror; a `trackGated` call is not. Third-party `trackEvent` calls (e.g. `Adjust.trackEvent()`) do not count, only calls on the Amply SDK do. A mirror means `eventPathway = wrapper`, plus an Observation naming the `file:line` hits. See *An app that already sends to Amply* |
 
@@ -54,7 +54,7 @@ The line does not have to wait for `Amply.initialize`: events, id changes and co
 
 If more than 100 items pile up before Amply starts, the oldest events are dropped first. Adding the plugin twice does nothing the second time.
 
-The wrapper from `wrapper-patterns.md` is then needed only for what the plugin does not do (below). If the app has nothing of that kind, no wrapper is written.
+The plugin replaces only event forwarding. The user id on logout, Custom Properties and gated calls stay in the wrapper (below), so an existing wrapper is trimmed, not deleted. If a new integration has nothing of that kind, no wrapper is written.
 
 ## An app that already sends to Amply
 
@@ -62,6 +62,10 @@ A plugin and a mirrored `track` at the same time double every event. So:
 
 - **`autopilot`: do not switch.** `eventPathway = wrapper`; the plugin goes into audit § 9 as an Observation. The app may have live campaigns on the names it sends today, and an automatic switch cannot see them.
 - **`interactive`: offer the replacement**, removing the mirroring in the same change, and show the names that would change before touching anything.
+
+**Before switching, compare what the old wrapper cut.** A property key the wrapper shortened (say to 32 characters) now arrives whole, up to 100, so a campaign targeting the cut name stops matching. List every key over 32 characters (or over whatever the wrapper cut to) and the campaigns that use the old name before the switch.
+
+**Dead helpers.** `pascalCaseEventName` splits on the common `[\s_\-.]+`, so an app's own PascalCase helper may become unused after the switch; check and report it, do not delete it unasked.
 
 The plugin passes names as Amplitude has them, with no PascalCase. An app whose Amply events are PascalCase keeps those names with a `transform`:
 
@@ -113,7 +117,7 @@ Keep these in the wrapper (or in the app), and take the mirrored `track` out of 
 
 Write these into the audit as Observations (§ 9) when they apply, with the exact change. `autopilot` does not edit the app's code for them; `interactive` offers the change.
 
-1. **`reset()` right after a `track` that matters.** If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must wait for the event first, with a bounded wait, then call `amplitude.reset()`:
+1. **`reset()` or a direct Amply call right after a `track` that matters.** Any direct Amply call right after a `track` overtakes that event by about 10 to 16 ms: `setUserId`, `setCustomProperty`, `clearCustomProperties`. Flag those call sites the same way as `amplitude.reset()`, with the same bounded wait and, in `autopilot`, an Observation. If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must wait for the event first, with a bounded wait, then call `amplitude.reset()`:
 
    ```ts
    await Promise.race([amplitude.track('Logged Out').promise, new Promise((r) => setTimeout(r, 500))]);

@@ -78,7 +78,7 @@ await Amply.track({
 
 ### Amplitude plugin (SDK 0.17.0+)
 
-For an app on `@amplitude/analytics-react-native` ≥ 1.5.16, `amplitude.add(amplyPlugin({ filter, transform, autocapture, syncUserId, userProperties, debug }))` sends the app's Amplitude events to Amply with no `Amply.track` calls. Exports: `amplyPlugin`, `pascalCaseEventName`. Initialise Amply as above first. Choice, options and checks: `references/amplitude-plugin.md`.
+For an app on `@amplitude/analytics-react-native` ≥ 1.5.16, `amplitude.add(amplyPlugin({ filter, transform, autocapture, syncUserId, userProperties, debug }))` sends the app's Amplitude events to Amply with no `Amply.track` calls. Exports of `@amplytools/react-native-amply-sdk/amplitude` (not of the package root): `amplyPlugin`, `pascalCaseEventName`. Initialise Amply as above first. Choice, options and checks: `references/amplitude-plugin.md`.
 
 ## Identify users
 

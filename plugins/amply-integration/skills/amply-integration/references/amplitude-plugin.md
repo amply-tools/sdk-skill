@@ -3,10 +3,12 @@
 For an app that tracks with Amplitude, Amply can read what the app already sends there, with one line and no wrapper:
 
 ```ts
-import Amply, { amplyPlugin } from '@amplytools/react-native-amply-sdk';
+import { amplyPlugin } from '@amplytools/react-native-amply-sdk/amplitude';
 
 amplitude.add(amplyPlugin());
 ```
+
+The import path matters: the plugin has its own entry point, it is not exported from the package root, so an app that does not import it carries none of its code.
 
 The plugin is a destination plugin of Amplitude. Every event the app tracks still goes to Amplitude unchanged; a copy reaches Amply on the device, in time to start a campaign and to build event history for audiences. The direction is one way: Amplitude to Amply.
 
@@ -70,7 +72,7 @@ A plugin and a mirrored `track` at the same time double every event. So:
 The plugin passes names as Amplitude has them, with no PascalCase. An app whose Amply events are PascalCase keeps those names with a `transform`:
 
 ```ts
-import { amplyPlugin, pascalCaseEventName } from '@amplytools/react-native-amply-sdk';
+import { amplyPlugin, pascalCaseEventName } from '@amplytools/react-native-amply-sdk/amplitude';
 
 amplitude.add(
   amplyPlugin({
@@ -111,7 +113,7 @@ Keep these in the wrapper (or in the app), and take the mirrored `track` out of 
 - The deeplink listener and `handleUrl` forwarding.
 - Custom Properties that do not come from Amplitude user properties (RevenueCat state, locale, install date).
 - Forwarding Amply system events to the app's analytics (`campaign-attribution.md`). **This must be excluded in `filter`:** a name such as `AmplyCampaignShown` tracked into Amplitude would come straight back into Amply as an ordinary custom event (it is not a reserved name). Open the app's forwarding code, collect the exact names it sends, and write them into `filter` (`!e.event_type.startsWith('Amply')` only if that is really their shape).
-- `Amply.setUserId` / `clearCustomProperties`: with the default `syncUserId: true` the plugin follows Amplitude's user id (login and logout), so do **not** add a `setUserId` call at login or logout; only when `syncUserId: false` do they stay in the app. `clearCustomProperties()` at logout is still the app's.
+- `Amply.setUserId` / `clearCustomProperties`: with the default `syncUserId: true` the plugin follows Amplitude's user id at login, so do **not** add a `setUserId` call there. Logout stays in the app: `amplitude.reset()`, then `Amply.setUserId(null)` and `clearCustomProperties()`, in that order. Amplitude does not signal `reset()` to the plugin, so without the direct call a logout followed by closing the app leaves the old user in Amply. With `syncUserId: false` every `setUserId` stays in the app.
 
 ## Audit notes and checks
 
@@ -126,7 +128,7 @@ Write these into the audit as Observations (§ 9) when they apply, with the exac
 
    The `.promise` alone never settles offline, so a logout handler that awaits it would hang; the 500 ms cap keeps it moving. Without the wait, Amplitude applies the event on a timer, after the user is already cleared, so the event reaches Amply without a user, looking like an event after logout. The audit flags every such call site with `file:line`. In `autopilot` the audit gets an Observation with the exact change (the bounded wait above at that site) and the skill does not edit the site; in `interactive` it offers the change.
 2. **Its own async Amplitude plugin, or a rewritten `user_id`.** If the app has an enrichment plugin of its own that does asynchronous work, or one that rewrites `user_id`, the plugin cannot always tell which user an event belongs to. Pass `syncUserId: false`, keep `Amply.setUserId` calls in the app, and put an audit note saying why.
-3. **Logout without any event.** If the user logs out and the app is closed before another event, Amply keeps the old id until the next sign-in. The app can call `Amply.setUserId(null)` itself for exactly this case (logout followed by closing the app with no further event); it is safe alongside the plugin.
+3. **Logout without the direct call.** If the app's logout path calls `amplitude.reset()` but not `Amply.setUserId(null)`, and the app closes before another event, Amply keeps the old id until the next sign-in. The audit flags that path with `file:line` and the one-line change. Keep the order `amplitude.reset()`, then `Amply.setUserId(null)`: the other way round, an event in between brings the old user back.
 4. **Expo Go.** There is no native module in Expo Go: the plugin warns once and then does nothing.
 5. **Reading `.promise` as delivery.** `amplitude.track(x).promise` reports the first destination, usually Amply, not delivery to Amplitude. App code that reads it (a success flag, a retry, a "sent" log) must not treat it as delivery to Amplitude; the audit flags such call sites as an Observation.
 6. **A frequent event** found in the audit is `skip-frequent` and goes into `filter`, not into a "later" list.

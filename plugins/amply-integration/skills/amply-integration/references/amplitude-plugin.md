@@ -85,7 +85,7 @@ The decisions of Phase 3 become the plugin's options:
 |---|---|
 | `skip-*` (system overlap, BI-only, `skip-frequent`) | `filter: (e) => !SKIPPED.has(e.event_type)` |
 | A `trackGated` moment that the app also sends to Amplitude | the same `filter`; a gated moment Amplitude never sees needs no entry |
-| `skip-pii` for a property outside the built-in PII list | `transform` that returns `properties` without it |
+| `skip-pii` for a property outside the built-in PII list | `transform` that returns `properties` without it. The plugin blocks exactly `email`, `phone`, `address`, `ip`, `full_name`, `firstname`, `lastname`, in any letter case; `first_name`, `last_name`, `phone_number` and the like pass. The audit lists every such key found in event properties, and each is dropped in `transform` |
 | A user property used for targeting | `userProperties: ['plan', 'subscription_status']` (a list of keys, or a function; there is no "all") |
 | A screen view is wanted | `autocapture: ['[Amplitude] Screen Viewed']`. The `[Amplitude] ` prefix is stripped from the name and from property keys **before** `filter` and `transform` run: the event reaches Amply as `Screen Viewed` with key `Screen Name`, and that is the name for campaign triggers and for `filter` / `transform` |
 | The app forwards Amply system events into its analytics (`campaign-attribution.md`) | exclude the forwarded names in `filter`, e.g. `filter: (e) => !e.event_type.startsWith('Amply')`. Read the names the app really forwards; do not assume the prefix |
@@ -113,11 +113,19 @@ Keep these in the wrapper (or in the app), and take the mirrored `track` out of 
 
 Write these into the audit as Observations (§ 9) when they apply, with the exact change. `autopilot` does not edit the app's code for them; `interactive` offers the change.
 
-1. **`reset()` right after a `track` that matters.** If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must `await amplitude.track(x).promise` first. Without the `await`, Amplitude applies the event on a timer, after the user is already cleared, so the event reaches Amply without a user, looking like an event after logout. The audit flags every such call site with `file:line`. In `autopilot` the audit gets an Observation with the exact change (the `await` at that site) and the skill does not edit the site; in `interactive` it offers the change.
+1. **`reset()` right after a `track` that matters.** If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must wait for the event first, with a bounded wait, then call `amplitude.reset()`:
+
+   ```ts
+   await Promise.race([amplitude.track('Logged Out').promise, new Promise((r) => setTimeout(r, 500))]);
+   amplitude.reset();
+   ```
+
+   The `.promise` alone never settles offline, so a logout handler that awaits it would hang; the 500 ms cap keeps it moving. Without the wait, Amplitude applies the event on a timer, after the user is already cleared, so the event reaches Amply without a user, looking like an event after logout. The audit flags every such call site with `file:line`. In `autopilot` the audit gets an Observation with the exact change (the bounded wait above at that site) and the skill does not edit the site; in `interactive` it offers the change.
 2. **Its own async Amplitude plugin, or a rewritten `user_id`.** If the app has an enrichment plugin of its own that does asynchronous work, or one that rewrites `user_id`, the plugin cannot always tell which user an event belongs to. Pass `syncUserId: false`, keep `Amply.setUserId` calls in the app, and put an audit note saying why.
 3. **Logout without any event.** If the user logs out and the app is closed before another event, Amply keeps the old id until the next sign-in. The app can call `Amply.setUserId(null)` itself for exactly this case (logout followed by closing the app with no further event); it is safe alongside the plugin.
 4. **Expo Go.** There is no native module in Expo Go: the plugin warns once and then does nothing.
-5. **A frequent event** found in the audit is `skip-frequent` and goes into `filter`, not into a "later" list.
+5. **Reading `.promise` as delivery.** `amplitude.track(x).promise` reports the first destination, usually Amply, not delivery to Amplitude. App code that reads it (a success flag, a retry, a "sent" log) must not treat it as delivery to Amplitude; the audit flags such call sites as an Observation.
+6. **A frequent event** found in the audit is `skip-frequent` and goes into `filter`, not into a "later" list.
 
 ## What to say to the user
 
@@ -134,4 +142,4 @@ When the pathway is `wrapper`, do not mention the plugin unless the user asks; p
 - The Amply admin shows an Amplitude event arriving after one tracked action (Phase 7; this is the human's check, as always).
 - A `filter`-ed event is absent from Amply and still present in Amplitude.
 - Logout changes the user once, and a cold start without a signed-in user does not call `setUserId`.
-- Every `reset()` call site from note 1 has its Observation in the audit (and, if the user accepted the change in `interactive`, the `await`); the events before logout carry the user only after that change.
+- Every `reset()` call site from note 1 has its Observation in the audit (and, if the user accepted the change in `interactive`, the bounded wait); the events before logout carry the user only after that change.

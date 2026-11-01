@@ -319,7 +319,7 @@ Add the package via the project's manager (`yarn add` / Gradle dep / Pod / SPM).
 
 ### Phase 5.5 — Lifecycle & state
 
-See `references/lifecycle-and-state.md`. Hold strong references to the Amply instance and the deeplink listener (the SDK does not retain listeners). Initialise Amply **before** the first `track` / `setCustomProperties` call. On login/logout call `setUserId(...)` / `setUserId(null) + clearCustomProperties()` — except with `eventPathway = plugin` and `syncUserId` on, where the plugin does the `setUserId` part and the app only clears Custom Properties.
+See `references/lifecycle-and-state.md`. Hold strong references to the Amply instance and the deeplink listener (the SDK does not retain listeners). Initialise Amply **before** the first `track` / `setCustomProperties` call. On login/logout call `setUserId(...)` / `setUserId(null) + clearCustomProperties()` — except with `eventPathway = plugin` and `syncUserId` on, where the plugin does the `setUserId` part at login; logout stays `amplitude.reset()`, then `setUserId(null)` + `clearCustomProperties()`.
 
 ### Phase 6 — Deeplink listener wiring
 

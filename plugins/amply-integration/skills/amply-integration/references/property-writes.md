@@ -26,6 +26,8 @@ When greping for vendor call-sites in Phase 2, recognise these as property-write
 | Customer.io | `CustomerIO.shared.identify(identifier:, body:)` | split |
 | Intercom | `Intercom.updateUser(UserAttributes(customAttributes:))` | per-attribute property write |
 
+**Amplitude plugin:** with `eventPathway = plugin` an Amplitude user property reaches Amply only if its key is listed in `userProperties: ['plan', ...]` (only `$set` / `$unset` are applied; string up to 255, finite number or boolean; key up to 32 characters; nothing is copied by default). Map the `mirror` decisions below to that list instead of writing `setCustomProperty` calls. `references/amplitude-plugin.md`.
+
 ## Decision tree per property-write detect
 
 For each detected property-write call:

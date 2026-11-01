@@ -20,6 +20,8 @@ This reference tells the audit (Phase 2) what to do when it detects these patter
 | **FullStory / Smartlook / UXCam — session-replay** | `FullStory.event(...)`, `Smartlook.trackCustomEvent(...)`, `UXCam.logEvent(...)` | N/A — session-replay is for support / UX research | DO NOT auto-mirror | — |
 | **OneSignal — push tags** | `OneSignal.sendTag(key, value)` | Where push targeting is set | property-write per tag if the value is categorical | per `key` |
 
+**Amplitude plugin note:** with `eventPathway = plugin` a purchase event the app already tracks in Amplitude reaches Amply by itself; the bridge gap exists only for events Amplitude never sees. `references/amplitude-plugin.md`.
+
 ## When the audit detects a 3rd-party SDK use without a bridge
 
 Audit row goes to Observations, format:

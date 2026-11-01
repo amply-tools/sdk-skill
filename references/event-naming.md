@@ -52,7 +52,13 @@ Most apps use a different convention internally — `paywall_shown`, `paywallSho
 
 Renaming everything breaks dashboards, alerts, downstream BI tables, and possibly an event schema validation pipeline. The audit should **leave existing event names alone**.
 
+## With the Amplitude plugin, names are not translated
+
+When `eventPathway = plugin` (`references/amplitude-plugin.md`) events reach Amply with the name Amplitude has, so a marketer sees the same name in both. Do not add a PascalCase step. An app that already sends PascalCase to Amply keeps it with `transform: (e) => ({ name: pascalCaseEventName(e.event_type) })` — an arrow function, never `transform: pascalCaseEventName`. The decision tree above still applies; its `skip-*` outcomes become `filter` / `transform` (table in the same reference).
+
 ## Translate inside the wrapper, for the Amply call only
+
+(Wrapper pathway.)
 
 The wrapper is the one place that talks to Amply. Translate at that boundary:
 

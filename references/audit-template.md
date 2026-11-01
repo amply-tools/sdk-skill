@@ -87,6 +87,13 @@ Decision values: `forward-translated` / `forward-translated-renamed` / `skip-sys
 | `src/install.ts:11` | `mixpanel.people.set_once` | `install_country` | string | `mirror` | immutable install-time property; ok one-shot |
 | `src/analytics/init.ts:30` | `amplitude.setUserProperty` | `transaction_id` | string | `skip-unique-id` | values look UUID-like at call-site context; not a targeting attribute |
 
+### 2.2b Event pathway (Amplitude only)
+
+- **Pathway:** `plugin` | `wrapper` — if `wrapper`, the checklist row that failed (version, native app, second instance, existing mirroring, …).
+- **Plugin options chosen:** `filter` (skipped events), `transform` (renames / dropped properties), `userProperties` (keys), `autocapture`, `syncUserId`.
+- **Flagged call sites:** `amplitude.reset()` right after a `track` that matters (`file:line`: `await` the `.promise` first); own async Amplitude plugin or rewritten `user_id` (`syncUserId: false`).
+- Details: `references/amplitude-plugin.md`.
+
 ### 2.3 Wrapper recommendation
 
 - **Action:** extend existing wrapper at `src/analytics/index.ts`.

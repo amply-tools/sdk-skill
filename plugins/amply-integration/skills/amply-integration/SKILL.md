@@ -1,6 +1,6 @@
 ---
 name: amply-integration
-description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model — and when designing or configuring an Amply campaign for an app that already has the SDK — who should see it, when, and what the targeting conditions are. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties", "design a campaign", "set up a campaign", "campaign targeting", "who should see it", "настроить кампанию", "придумать кампанию", "таргетинг", "кому показать", "campaign goal", "conversions", "which campaign drove purchases", "цель кампании", "build a mini-app", "make a bottom sheet", "make a story", "сделай шторку", "сделай сторис", "собери мини-апп", "built-in campaign", "show it on first launch offline", "amply-bundle.json", "amply bundle", "встроенная кампания", "показать без интернета", "Overlay", "Amply Web", "in-app browser", "App Store link not opening in Instagram", "link in bio", "download button on my website".
+description: Use when the user wants to integrate the Amply SDK (amply.tools) into a mobile app — React Native, Expo, iOS / Swift, Android / Kotlin, or Kotlin Multiplatform — wire campaign deeplinks, forward existing analytics events into Amply, set Custom Properties for targeting, or audit a project's product analytics for Amply's Who/When/What campaign model — and when designing or configuring an Amply campaign for an app that already has the SDK — who should see it, when, and what the targeting conditions are. Triggers include phrases like "add Amply", "install Amply SDK", "set up Amply", "integrate amply.tools", "Amply campaigns", "Amply deeplink", "Amply custom properties", "design a campaign", "set up a campaign", "campaign targeting", "who should see it", "настроить кампанию", "придумать кампанию", "таргетинг", "кому показать", "campaign goal", "conversions", "which campaign drove purchases", "цель кампании", "build a mini-app", "make a bottom sheet", "make a story", "сделай шторку", "сделай сторис", "собери мини-апп", "built-in campaign", "show it on first launch offline", "amply-bundle.json", "amply bundle", "встроенная кампания", "показать без интернета", "Overlay", "Amply Web", "in-app browser", "App Store link not opening in Instagram", "link in bio", "download button on my website", "Amplitude plugin", "amplitude.add", "send Amplitude events to Amply".
 ---
 
 # Amply Integration
@@ -31,6 +31,7 @@ This skill walks the user through an opinionated, end-to-end integration:
 - The user wants to **build a Mini-app** — a bottom sheet, card, story, onboarding or survey screen Amply shows in the app — with the Amply MCP. Go straight to `references/mini-app-authoring.md`.
 - The app must show a campaign on its **very first launch, even offline** (onboarding, first-launch paywall, consent) — **built-in campaigns**, `amply-bundle.json`, `npx @amplytools/cli bundle`. Go to `references/built-in-campaigns.md`.
 - The user wants **Overlay** on the app's **website** — the script that gets visitors from Threads, Instagram, TikTok or Facebook out of the in-app browser to the App Store or Google Play. No app SDK involved; go to *Overlay (website)* below.
+- The app tracks with **Amplitude** (`@amplitude/analytics-react-native`) and the user wants its events in Amply — the **Amplitude plugin**, `amplitude.add(amplyPlugin())`, SDK 0.17.0+, React Native / Expo only. Go to `references/amplitude-plugin.md`.
 - The SDK is already integrated and the user wants to **design or configure a campaign** (who sees it, when, what it does). Skip the integration phases and go straight to `references/who-when-what-audit.md` — start from its *Designing a condition* rules before proposing any new Custom Property or app change.
 
 **Don't use for:** debugging Amply backend issues, building marketing copy about Amply, or generic mobile analytics work that has nothing to do with Amply.
@@ -67,6 +68,7 @@ The skill is a 9-phase state machine. It threads a small set of variables betwee
 | `envBlock` | the env entries assembled from `amplyApps` — two sets when the project ships both platforms | unset | Phase 1b |
 | `credentialsBlocked` | `true` when Phase 1b could not obtain real values | `false` | Phase 1b (autopilot) |
 | `wrapperStrategy` | `extend` \| `new` | `extend` | Phase 2 analytics audit |
+| `eventPathway` | `plugin` \| `wrapper` | `wrapper` | Phase 2 — `plugin` only when every row of the checklist in `references/amplitude-plugin.md` holds |
 | `phasesCompleted` | set of phase numbers | `{}` | appended at the end of each phase |
 | `checkpointsPassed` | set | `{}` | each verification gate (6a scheme, 6b listener, Phase 7 build) |
 | `feedbackConsent` | `yes` \| `no` | unset | § Phase 0.6 — asked once, opt-in, default no |
@@ -112,6 +114,7 @@ Before anything else, check two MCPs:
 | "Throttle prompts / rate-limit asks" | ✅ Repeat Rules + Frequency Limits on the campaign. | Implement the deeplink target. |
 | "Which campaigns bring purchases" / "see it in our analytics" | ✅ **Goals**: each campaign's conversions within a window after it was seen — computed from events already sent, any SDK version. | Optional: put `amply_campaign_id` on the purchase event, sent to Amply and the app's analytics (`references/campaign-attribution.md`). |
 | "Show onboarding / a paywall / a consent screen on the very first launch, even offline" | ✅ **Built-in campaign** (Amply SDK 0.16.0+): the campaign ships inside the app build and shows before the app has ever reached Amply. Used until the first successful download, not after (barring an emergency switch-back by Amply). | Run `npx @amplytools/cli bundle` before each release and commit the file; iOS adds it to the app target once; Expo keeps the Amply plugin in `app.json`. No code. `references/built-in-campaigns.md`. |
+| "We already track everything in Amplitude — can Amply use those events?" | ✅ **Amplitude plugin** (RN / Expo, `@amplytools/react-native-amply-sdk` 0.17.0+, `@amplitude/analytics-react-native` 1.5.16+): one line, `amplitude.add(amplyPlugin())`, sends what the app already tracks to Amply on the device. Native iOS / Android: not available yet — those apps use the wrapper. | Add the line, name the frequent events in `filter`. No Amply call sites to write. `references/amplitude-plugin.md`. |
 | "Trigger an in-app action based on user history" — incl. "hasn't done X for N days" | ✅ built-in on Amply SDK 0.6.1+: audience rules target event history directly — counts, and **how long ago an event first/last happened** ("not in the last 7 days" includes never), with event property filters — alongside Custom Properties, combined with a triggering event. | Fire the events. **Don't add `last_x_at` / `x_count` properties for this** — they duplicate what the SDK already records. (Counter properties only for fleets below SDK 0.6.1 or derived state.) |
 
 In `autopilot`, write one paragraph at the top of the audit: "Your stated goal `<X>` maps onto Amply as follows: Amply will <Y>, your app must <Z>." If any element of the goal lands in the ❌ column, surface that as the first item of the audit. The integration may still be worth doing for the parts Amply *can* do, but the team needs to know upfront where they'll need their own infrastructure.
@@ -212,6 +215,8 @@ For every call site, capture **file:line plus the property keys and types passed
 
 **System-event overlap is the first rule the events tree applies.** Project events that overlap with Amply's auto-fired system events (`session_start` / `app_open` → `SessionStarted`, etc. — see `references/system-events.md`) are dropped, not mirrored. This is **not** optional — duplicates make campaign evaluation noisy.
 
+**Amplitude: plugin or wrapper.** If Amplitude is detected, run the checklist in `references/amplitude-plugin.md` and set `eventPathway`. `plugin` when `@amplitude/analytics-react-native` ≥ 1.5.16 and Amply SDK ≥ 0.17.0 (React Native / Expo only — there is no native adapter yet, so Swift / Kotlin / KMP apps are `wrapper`) and every other row holds; otherwise `wrapper`, with the failing row written into the audit. An app that already mirrors `track` to Amply is **not** switched in `autopilot` (the plugin and the mirroring together would double every event, and live campaigns may depend on today's names): it stays `wrapper` and the plugin goes to § 9 as an Observation; `interactive` may offer the replacement.
+
 Decide whether the project already has an analytics wrapper. **Default**: extend the existing wrapper. **Switch to a new wrapper** only if the existing one is server-only, BI-only, vendor-schema-typed in a way that doesn't translate, consent-gated in a way that would block Amply targeting events, or too high-volume to mirror without performance cost. State the exception you found.
 
 This is a multi-option decision — see Mode. In `autopilot`, default to extending the existing wrapper and log the choice in audit § 7.
@@ -236,7 +241,7 @@ In `autopilot`, default to construction-unconditional plus the PII / opaque-id /
 
 Build the two audit tables produced by Phase 2 — events (§ 2.1) and user-property writes (§ 2.2). For each row, the Decision and Why come from the decision trees in `references/event-naming.md` and `references/property-writes.md`.
 
-**Do not** rename existing events in the project — translate to PascalCase inside the wrapper for the Amply call only.
+**Do not** rename existing events in the project — translate to PascalCase inside the wrapper for the Amply call only. (With `eventPathway = plugin` names reach Amply as Amplitude has them, no translation; an app that already sends PascalCase keeps it with `transform`. The Phase 2 decisions compile into plugin options — `references/amplitude-plugin.md`.)
 
 Inventory user properties → Amply Custom Properties. Allowed value types: **`String` / `Number` / `Boolean` / `DateTime`** for native SDKs; **`string | number | boolean` only** for the RN SDK (no DateTime via the RN public surface). Anything else → flag as not-supported or apply array-recipe (see `references/custom-properties.md`).
 
@@ -268,7 +273,9 @@ Save findings as `amply-audit.md` (template: `references/audit-template.md`). Th
 
 ### Phase 5 — Wrapper implementation
 
-Use the templates in `references/wrapper-patterns.md`. Generate / patch wrapper code; preserve existing event shape; add the **platform-correct Amply call**:
+With `eventPathway = plugin`, do not generate `Amply.track` calls for events Amplitude carries: initialise Amply, then add `amplitude.add(amplyPlugin({ filter, transform, userProperties }))` next to `amplitude.init`. The wrapper keeps only what the plugin does not do (`trackGated`, deeplink listener, Custom Properties from other sources, system-event forwarding). `references/amplitude-plugin.md`.
+
+Otherwise use the templates in `references/wrapper-patterns.md`. Generate / patch wrapper code; preserve existing event shape; add the **platform-correct Amply call**:
 
 - **RN/Expo** — `await Amply.track({ name, properties })` (object payload).
 - **iOS Swift** — `amply.track(event: "...", properties: [...])` on the held instance.
@@ -348,6 +355,7 @@ Run the build **yourself** — per the *Build & verify yourself* contract above,
 - **Expo Managed (Flavour D)** — same plugin entry as C; build via `eas build -p ios` / `-p android` (prebuild + autolinking run in EAS cloud).
 - **Native iOS (Swift, no RN)** — `pod install` (CocoaPods) or `xcodebuild -resolvePackageDependencies` (SPM). Verify the resolved version actually landed: CocoaPods → `AmplySDK` at the pinned version in `Podfile.lock`; SPM → both `Package.resolved` *and* the `SourcePackages/checkouts/amply-sdk-ios` tag (a stale binary-target cache keeps the old `.xcframework` even when the pin looks right). For a version *bump*, follow the cheatsheet's "Upgrading the SDK version" and the cross-platform note below.
 - **Native Android (Kotlin, no RN)** — Gradle sync; verify the *resolved* version with `./gradlew :app:dependencyInsight --dependency tools.amply:sdk-android` (not just the declared literal — a force/BOM can override it). For a version *bump*, see the cheatsheet's "Upgrading the SDK version" and the cross-platform note below.
+- **With `eventPathway = plugin`** — also confirm one tracked Amplitude action reaches Amply, that a `filter`-ed event does not, and that every `amplitude.reset()` right after a `track` that matters has its `await ….promise` (`references/amplitude-plugin.md` → *Verifying*).
 - **All platforms** — full build; verify the Amply module logs `[Amply.Sdk]` lines at debug log level. Then confirm a test event lands in the Amply admin panel.
 
 **Two checks, and only one of them is yours.** The `[Amply.Sdk]` log lines you can read yourself — do that, and treat their absence as a failure. Whether the event actually *arrived* is visible only in the admin panel, and no MCP tool exposes raw events or session payloads, so you cannot check it: `statistics_active_users` reports daily totals, not "did my test event land". Print the steps, ask the human to look, and **do not record Phase 7 as passed until they say it arrived.** Reporting a green finish because the build compiled is how an integration ships that reports nothing — the exact failure this phase exists to catch.
@@ -443,6 +451,10 @@ Overlay is a script for the app's **website**, not the app. Store links tapped i
 | Using array / nested-object Custom Property values; using DateTime on RN. | Native: `String` / `Number` / `Boolean` / `DateTime` only. RN: `string` / `number` / `boolean` only. |
 | Wrapping Amply in a runtime consent gate. | Amply is a first-party product-feature SDK, not tracking analytics — consent gates are defensive over-engineering. If a user shouldn't see Amply campaigns, don't construct the SDK for them. See Phase 2.5. |
 | Skipping Phase 4 because the user is in a hurry. | At minimum produce a 5-line gap list — even a short audit pays back. |
+| Adding `amplyPlugin()` to an app whose wrapper still mirrors `track` to Amply, or turning it on in `autopilot` for such an app. | Every event doubles, and live campaigns may sit on today's names. Remove the mirroring in the same change (`interactive`), or stay on the wrapper (`autopilot`). |
+| Offering the Amplitude plugin to a native Swift / Kotlin / KMP app, or to `@amplitude/react-native`. | RN / Expo with `@amplitude/analytics-react-native` ≥ 1.5.16 and Amply SDK ≥ 0.17.0 only. There is no native adapter yet. |
+| `transform: pascalCaseEventName`. | `transform` gets the event: `transform: (e) => ({ name: pascalCaseEventName(e.event_type) })`. |
+| `amplitude.reset()` straight after a `track` that matters, with the plugin on. | `await amplitude.track(x).promise` first, or the event reaches Amply without a user. |
 | Renaming the app's existing events to PascalCase. | Keep existing names. Translate inside the wrapper for the Amply call only. |
 | Forgetting strong references — listener garbage-collected. | Listeners and the Amply instance must be retained explicitly on Swift / Kotlin. |
 | Firing `track` / `setCustomProperties` before init finishes (init not `await`ed). | The first events race the SDK construction and are dropped. Initialise (and `await` it on RN/Expo) **before** any `track`; see Phase 5.5. |

@@ -7,6 +7,8 @@ Always route Amply calls through a single module — either the project's existi
 3. **Do the convention translation in the wrapper** — PascalCase event names and snake_case property keys for the Amply call only. Do not rename the project's events.
 4. **Strip / hash PII** at the wrapper before forwarding to Amply: email, phone, raw IP, full name, government IDs, raw payment details. This is hygiene, not consent — see `consent-and-privacy.md` for why Amply (a first-party product-feature SDK) does not need a runtime consent gate.
 
+**Exception to the single-module rule:** with `eventPathway = plugin` (`references/amplitude-plugin.md`) Amplitude events reach Amply through `amplitude.add(amplyPlugin())`, not through the wrapper. The wrapper then keeps only what the plugin does not do — `trackGated` / `registerGate`, the deeplink listener, Custom Properties from other sources, system-event forwarding — and its mirrored `Amply.track` is removed in the same change. Never both: events would double.
+
 ## Template — TypeScript (RN / Expo)
 
 ```ts

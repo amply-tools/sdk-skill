@@ -38,8 +38,8 @@ If the app is on `@amplitude/analytics-react-native` below 1.5.16, or on an Ampl
 | One Amplitude instance | no `createInstance(...)`, or it is clear which one is the main one |
 | The plugin can be added before the first meaningful event | `amplitude.add(...)` fits next to `amplitude.init(...)` |
 | Amplitude is the main path of events | most tracking calls go through it |
-| Gated calls will not double | `trackGated` calls Amply directly and is not replaced by the plugin. If the same moment is also sent to Amplitude, exclude it in `filter`; if it is not sent to Amplitude, no filter is needed |
-| Frequent events are named | loops, scroll, timers, polling: out through `filter` |
+| Gated calls will not double | `trackGated` calls Amply directly and is not replaced by the plugin. If the same moment is also sent to Amplitude, put it in `events.exclude`; if it is not sent to Amplitude, nothing is needed |
+| Frequent events are named | loops, scroll, timers, polling: out through `events.exclude` |
 | `userId` policy is chosen | the app already calls `Amply.setUserId` with its own id, or rewrites `user_id` in its own Amplitude plugin: `syncUserId: false`. Also read the app's logout path: if it does not clear Amplitude's user (no `amplitude.reset()`, no `setUserId(undefined)`), the plugin never sees a logout, so `syncUserId: false` and the app keeps its `Amply.setUserId`. Do **not** add `reset()` to fix it: it rotates Amplitude's device id, which attribution tools read |
 | One Amplitude client | Amply has one user. Clients tracking the same user: `amplyPlugin()` once per client, `syncUserId: false` on all but one. Clients tracking different users: the plugin on one of them only, or `wrapper` |
 | No Amplitude enrichment plugin of the app's own that is async | the app has none, or `syncUserId: false` (see *Audit notes*) |
@@ -50,7 +50,7 @@ If the app is on `@amplitude/analytics-react-native` below 1.5.16, or on an Ampl
 Under `plugin` there is no plain `Amply.track` for anything Amplitude carries, in new code or in an existing wrapper (`wrapperStrategy = extend` still applies to the rest of the wrapper). An event Amplitude does not carry either goes through Amplitude first, or stays a direct Amply call if the audit decides so. Initialise Amply as in the cheatsheet (`await Amply.initialize(...)`), then add the plugin beside `amplitude.init`:
 
 ```ts
-amplitude.add(amplyPlugin({ filter, transform, userProperties }));
+amplitude.add(amplyPlugin({ events: { exclude: SKIPPED }, userProperties: ['plan'] }));
 ```
 
 The line does not have to wait for `Amply.initialize`: events, id changes and copied user properties wait, in order, up to 100 items, until Amply starts. So no existing synchronous function has to become async for the plugin.
@@ -90,21 +90,24 @@ The decisions of Phase 3 become the plugin's options:
 
 | Audit decision | Option |
 |---|---|
-| `skip-*` (system overlap, BI-only, `skip-frequent`) | `filter: (e) => !SKIPPED.has(e.event_type)` |
-| A `trackGated` moment that the app also sends to Amplitude | the same `filter`; a gated moment Amplitude never sees needs no entry |
-| `skip-pii` for a property outside the built-in PII list | `transform` that returns `properties` without it. The plugin blocks exactly `email`, `phone`, `address`, `ip`, `full_name`, `firstname`, `lastname`, in any letter case; `first_name`, `last_name`, `phone_number` and the like pass. The audit lists every such key found in event properties, and each is dropped in `transform` |
-| A user property used for targeting | `userProperties: ['plan', 'subscription_status']` (a list of keys, or a function; there is no "all") |
-| A screen view is wanted | `autocapture: ['[Amplitude] Screen Viewed']`. The `[Amplitude] ` prefix is stripped from the name and from property keys **before** `filter` and `transform` run: the event reaches Amply as `Screen Viewed` with key `Screen Name`, and that is the name for campaign triggers and for `filter` / `transform` |
-| The app forwards Amply system events into its analytics (`campaign-attribution.md`) | exclude the forwarded names in `filter`, e.g. `filter: (e) => !e.event_type.startsWith('Amply')`. Read the names the app really forwards; do not assume the prefix |
+| `skip-*` (system overlap, BI-only, `skip-frequent`) | `events: { exclude: ['Scroll Tick', /^debug_/] }`: exact names or patterns. When the app sends Amply only a few of its events, the other way round: `events: { include: [...] }` |
+| A `trackGated` moment that the app also sends to Amplitude | the same `events.exclude`; a gated moment Amplitude never sees needs no entry |
+| `skip-pii` for a property outside the built-in PII list | `eventProperties: { exclude: ['first_name', /phone/] }`. The plugin blocks exactly `email`, `phone`, `address`, `ip`, `full_name`, `firstname`, `lastname`, in any letter case; `first_name`, `last_name`, `phone_number` and the like pass. The audit lists every such key found in event properties, and each is dropped in `transform` |
+| A user property used for targeting | `userProperties: ['plan', 'subscription_status']`. All but some: `userProperties: { exclude: ['email'] }`. Nothing is copied without the option |
+| A screen view is wanted | `autocapture: ['[Amplitude] Screen Viewed']`. The `[Amplitude] ` prefix is stripped from the name and from property keys **before** `filter` and `transform` run: the event reaches Amply as `Screen Viewed` with key `Screen Name`, and that is the name for campaign triggers and for `filter` / `transform`; the `events` / `eventProperties` lists use the full name with the prefix |
+| The app forwards Amply system events into its analytics (`campaign-attribution.md`) | put the forwarded names in `events.exclude`, e.g. `events: { exclude: [/^Amply/] }`. Read the names the app really forwards; do not assume the prefix |
+| A rule the lists cannot say (depends on a property value) | `filter: (e) => ...`, runs after the lists |
 | The app manages the user id itself | `syncUserId: false`, and the app keeps calling `Amply.setUserId` |
 | A name must stay PascalCase | `transform` with `pascalCaseEventName` (above) |
 | Debugging a gap | `debug: true` (logs what is skipped and why) |
 
 What the plugin already does, so the audit does not repeat it as a decision: `session_start`, `session_end`, `$identify` and `$groupidentify` never become Amply events; Amplitude's automatic events (names that start with `[Amplitude] `) are off unless listed in `autocapture`; Amply's own system event names are refused; PII keys (`email`, `phone`, `address`, `ip`, `full_name`, `firstname`, `lastname`), `null`, objects and non-finite numbers are dropped from properties; a limit of 60 events a minute per name and 300 in total stops loops. An opted-out Amplitude user sends nothing.
 
+The lists match names and keys as Amplitude shows them, before the `[Amplitude] ` prefix is stripped and before `transform` renames anything. `exclude` wins over `include`; `include: []` sends nothing. `filter` and `transform` see the event after the lists, so a key dropped by `eventProperties` is not there.
+
 `filter` and `transform` get a copy of the event; changing it does not change what Amplitude sends. If either throws, that event is dropped from Amply and Amplitude is not affected.
 
-User properties are not copied by default. With `userProperties`, only `$set` and `$unset` of the listed keys are applied; a value must be a string up to 255 characters, a finite number or a boolean, and the key up to 32 characters.
+User properties are not copied by default. With `userProperties`, only `$set` and `$unset` of the keys it allows are applied; a value must be a string up to 255 characters, a finite number or a boolean, and the key up to 32 characters.
 
 ## What the plugin does not replace
 
@@ -113,7 +116,7 @@ Keep these in the wrapper (or in the app), and take the mirrored `track` out of 
 - `trackGated` and `registerGate`.
 - The deeplink listener and `handleUrl` forwarding.
 - Custom Properties that do not come from Amplitude user properties (RevenueCat state, locale, install date).
-- Forwarding Amply system events to the app's analytics (`campaign-attribution.md`). **This must be excluded in `filter`:** a name such as `AmplyCampaignShown` tracked into Amplitude would come straight back into Amply as an ordinary custom event (it is not a reserved name). Open the app's forwarding code, collect the exact names it sends, and write them into `filter` (`!e.event_type.startsWith('Amply')` only if that is really their shape).
+- Forwarding Amply system events to the app's analytics (`campaign-attribution.md`). **This must be in `events.exclude`:** a name such as `AmplyCampaignShown` tracked into Amplitude would come straight back into Amply as an ordinary custom event (it is not a reserved name). Open the app's forwarding code, collect the exact names it sends, and write them into `events.exclude` (`/^Amply/` only if that is really their shape).
 - `Amply.setUserId` / `clearCustomProperties`: with the default `syncUserId: true` the plugin follows Amplitude's user id at login, so do **not** add a `setUserId` call there. Logout stays in the app: `amplitude.reset()`, then `Amply.setUserId(null)` and `clearCustomProperties()`, in that order. Amplitude does not signal `reset()` to the plugin, so without the direct call a logout followed by closing the app leaves the old user in Amply. With `syncUserId: false` every `setUserId` stays in the app.
 
 ## Audit notes and checks
@@ -132,7 +135,7 @@ Write these into the audit as Observations (§ 9) when they apply, with the exac
 3. **Logout without the direct call.** If the app's logout path calls `amplitude.reset()` but not `Amply.setUserId(null)`, and the app closes before another event, Amply keeps the old id until the next sign-in. The audit flags that path with `file:line` and the one-line change. Keep the order `amplitude.reset()`, then `Amply.setUserId(null)`: the other way round, an event in between brings the old user back.
 4. **Expo Go.** There is no native module in Expo Go: the plugin warns once and then does nothing.
 5. **Reading `.promise` as delivery.** `amplitude.track(x).promise` reports the first destination, usually Amply, not delivery to Amplitude. App code that reads it (a success flag, a retry, a "sent" log) must not treat it as delivery to Amplitude; the audit flags such call sites as an Observation.
-6. **A frequent event** found in the audit is `skip-frequent` and goes into `filter`, not into a "later" list.
+6. **A frequent event** found in the audit is `skip-frequent` and goes into `events.exclude`, not into a "later" list.
 
 ## What to say to the user
 
@@ -147,6 +150,6 @@ When the pathway is `wrapper`, do not mention the plugin unless the user asks; p
 ## Verifying
 
 - The Amply admin shows an Amplitude event arriving after one tracked action (Phase 7; this is the human's check, as always).
-- A `filter`-ed event is absent from Amply and still present in Amplitude.
+- An excluded event is absent from Amply and still present in Amplitude.
 - Logout changes the user once, and a cold start without a signed-in user does not call `setUserId`.
 - Every `reset()` call site from note 1 has its Observation in the audit (and, if the user accepted the change in `interactive`, the bounded wait); the events before logout carry the user only after that change.

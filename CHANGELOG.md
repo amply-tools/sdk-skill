@@ -4,6 +4,11 @@ All notable changes to `amply-integration` are documented here. Format follows [
 
 ## [Unreleased]
 
+## [0.19.1] — 2026-11-03
+
+### Fixed
+- **Logout wait with the Amplitude plugin** (`SKILL.md` *Common mistakes*; `references/amplitude-plugin.md` edge cases 1 and 5). The bounded wait raced `amplitude.track(x).promise` against 500 ms, but that promise settles only after every destination, Amplitude's own upload included, so a real app waited the full cap on every logout. The skill now writes a fixed `setTimeout` delay after `track` and never awaits `.promise` as a sign Amply got the event.
+
 ## [0.19.0] — 2026-11-03
 
 ### Added

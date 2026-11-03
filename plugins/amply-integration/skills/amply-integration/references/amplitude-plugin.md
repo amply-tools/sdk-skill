@@ -123,18 +123,19 @@ Keep these in the wrapper (or in the app), and take the mirrored `track` out of 
 
 Write these into the audit as Observations (§ 9) when they apply, with the exact change. `autopilot` does not edit the app's code for them; `interactive` offers the change.
 
-1. **`reset()` or a direct Amply call right after a `track` that matters.** Any direct Amply call right after a `track` overtakes that event by about 10 to 16 ms: `setUserId`, `setCustomProperty`, `clearCustomProperties`. Flag those call sites the same way as `amplitude.reset()`, with the same bounded wait and, in `autopilot`, an Observation. If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must wait for the event first, with a bounded wait, then call `amplitude.reset()`:
+1. **`reset()` or a direct Amply call right after a `track` that matters.** Any direct Amply call right after a `track` overtakes that event by about 10 to 16 ms: `setUserId`, `setCustomProperty`, `clearCustomProperties`. Flag those call sites the same way as `amplitude.reset()`, with the same delay and, in `autopilot`, an Observation. If the app calls `amplitude.reset()` straight after a `track` it cares about (a logout event, a purchase), it must wait for the event first, with a fixed delay, then call `amplitude.reset()`:
 
    ```ts
-   await Promise.race([amplitude.track('Logged Out').promise, new Promise((r) => setTimeout(r, 500))]);
+   amplitude.track('Logged Out');
+   await new Promise((r) => setTimeout(r, 500));
    amplitude.reset();
    ```
 
-   The `.promise` alone never settles offline, so a logout handler that awaits it would hang; the 500 ms cap keeps it moving. Without the wait, Amplitude applies the event on a timer, after the user is already cleared, so the event reaches Amply without a user, looking like an event after logout. The audit flags every such call site with `file:line`. In `autopilot` the audit gets an Observation with the exact change (the bounded wait above at that site) and the skill does not edit the site; in `interactive` it offers the change.
+   Do not await `amplitude.track(...).promise` for this, not even raced against a timeout. It settles only after every destination is done, including Amplitude's own upload, and offline never. A real app waited the full cap on every logout (2026-11-03). Half a second is far more than the plugin needs. Without the wait, Amplitude applies the event on a timer, after the user is already cleared, so the event reaches Amply without a user, looking like an event after logout. The audit flags every such call site with `file:line`. In `autopilot` the audit gets an Observation with the exact change (the bounded wait above at that site) and the skill does not edit the site; in `interactive` it offers the change.
 2. **Its own async Amplitude plugin, or a rewritten `user_id`.** If the app has an enrichment plugin of its own that does asynchronous work, or one that rewrites `user_id`, the plugin cannot always tell which user an event belongs to. Pass `syncUserId: false`, keep `Amply.setUserId` calls in the app, and put an audit note saying why.
 3. **Logout without the direct call.** If the app's logout path calls `amplitude.reset()` but not `Amply.setUserId(null)`, and the app closes before another event, Amply keeps the old id until the next sign-in. The audit flags that path with `file:line` and the one-line change. Keep the order `amplitude.reset()`, then `Amply.setUserId(null)`: the other way round, an event in between brings the old user back.
 4. **Expo Go.** There is no native module in Expo Go: the plugin warns once and then does nothing.
-5. **Reading `.promise` as delivery.** `amplitude.track(x).promise` reports the first destination, usually Amply, not delivery to Amplitude. App code that reads it (a success flag, a retry, a "sent" log) must not treat it as delivery to Amplitude; the audit flags such call sites as an Observation.
+5. **Reading `.promise` as delivery.** `amplitude.track(x).promise` settles after every destination is done and carries the result of the first one listed. App code that reads it (a success flag, a retry, a "sent" log) must not treat it as delivery to Amplitude, nor as a sign that Amply got the event. The audit flags such call sites as an Observation.
 6. **A frequent event** found in the audit is `skip-frequent` and goes into `events.exclude`, not into a "later" list.
 
 ## What to say to the user

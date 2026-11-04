@@ -49,10 +49,11 @@ RN is the easiest place to ship a half-upgrade. Bumping the npm package updates 
 
 From 0.18.0 the bridge takes the native `AmplySDK` from the Swift package `github.com/amply-tools/amply-sdk-ios` (React Native's `spm_dependency`, wired at `pod install`), not from CocoaPods trunk. For an integration this means:
 
-- **Nothing in the `Podfile`.** Never add `pod 'AmplySDK'` or a separate `AmplySDK` Swift package next to the RN SDK — the bridge already brings it, and a second source can break the build or put the SDK in the app twice. If the project has one from an older guide, remove it.
+- **Nothing in the `Podfile`.** Never add `pod 'AmplySDK'` or a separate `AmplySDK` Swift package next to the RN SDK — the bridge already brings the version it was tested with, and a second source competes with it — which version gets linked is then up to the linker. If the project has one from an older guide, remove it.
 - **Static linking only** — the RN/Expo defaults and `use_frameworks! :linkage => :static` / `"useFrameworks": "static"`. A dynamic-framework build fails with a compile error from `AmplyModule.mm`; report the setting to the human rather than working around it.
 - **Network at build time** — the first iOS build downloads the framework from `github.com` and `release-assets.githubusercontent.com`. EAS and hosted CI have access; a locked-down CI needs both hosts allowed.
 - Requires React Native 0.75+ (`spm_dependency`); the SDK supports 0.79+ anyway.
+- **React Native SPM mode** (RN 0.87+, `npx react-native spm`; default from RN 0.89) works through the package's own `ios/Package.swift` — no scaffolding, nothing to add. Local React mode only; `RN_SPM_REMOTE_URL` (remote React package) is not supported yet.
 
 ## Initialize
 

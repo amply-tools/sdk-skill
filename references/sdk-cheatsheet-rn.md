@@ -35,15 +35,24 @@ Distinguishing B from C is the most common mistake: check `git ls-files ios/ and
 
 ## Upgrading the SDK version — JS *and* native, both layers
 
-RN is the easiest place to ship a half-upgrade. Bumping the npm package updates the **JS** layer, but the **native** SDK (iOS Pod / Android Gradle, pinned by this package's podspec / `build.gradle`) only changes when you re-install native. A JS-only bump runs new TypeScript against the **old** native bridge — green `tsc` / `jest`, broken at runtime. After changing the version:
+RN is the easiest place to ship a half-upgrade. Bumping the npm package updates the **JS** layer, but the **native** SDK (iOS Swift package / Android Gradle, pinned by this package's `package.json` → `amply.iosSdkVersion` and `build.gradle`) only changes when you re-install native. A JS-only bump runs new TypeScript against the **old** native bridge — green `tsc` / `jest`, broken at runtime. After changing the version:
 
 1. **JS layer** — `yarn add @amplytools/react-native-amply-sdk@<X>` (updates `package.json` + lockfile). Upgrading in place: `rm -rf node_modules && yarn install`, and restart Metro with `--reset-cache`.
 2. **Native layer — re-install, don't assume:**
-   - **Bare / Expo-Modules (A/B):** iOS → `cd ios && pod install` (or `pod update AmplySDK` if the podspec's native pin moved); Android → Gradle sync / `./gradlew :app:dependencies --refresh-dependencies`.
+   - **Bare / Expo-Modules (A/B):** iOS → `cd ios && pod install` (from 0.18.0 that is enough; on 0.17.x and earlier, `pod update AmplySDK` if the podspec's native pin moved); Android → Gradle sync / `./gradlew :app:dependencies --refresh-dependencies`.
    - **Expo Prebuild (C):** `npx expo prebuild --clean` regenerates `ios/` + `android/` against the new package.
    - **Expo Managed (D):** rebuild via `eas build` so the new native SDK is pulled in the cloud.
-3. **Verify both layers** — JS: new version in `yarn.lock` / `node_modules/@amplytools/react-native-amply-sdk/package.json`; iOS native: `AmplySDK (<x>)` in `ios/Podfile.lock`; Android native: `dependencyInsight` shows `tools.amply:sdk-android:<x>` (see `sdk-cheatsheet-android.md`).
+3. **Verify both layers** — JS: new version in `yarn.lock` / `node_modules/@amplytools/react-native-amply-sdk/package.json`; iOS native: from 0.18.0 the `amply-sdk-ios` pin in `ios/<App>.xcworkspace/xcshareddata/swiftpm/Package.resolved` reads `<x>` (on 0.17.x and earlier, `AmplySDK (<x>)` in `ios/Podfile.lock`); Android native: `dependencyInsight` shows `tools.amply:sdk-android:<x>` (see `sdk-cheatsheet-android.md`).
 4. **Confirm at runtime** — per SKILL.md Phase 7 "Version bumps (any platform)": the session must report the expected `sdkVersionNormalized`. This is what catches a JS / native mismatch the build won't.
+
+## iOS native SDK delivery (0.18.0+)
+
+From 0.18.0 the bridge takes the native `AmplySDK` from the Swift package `github.com/amply-tools/amply-sdk-ios` (React Native's `spm_dependency`, wired at `pod install`), not from CocoaPods trunk. For an integration this means:
+
+- **Nothing in the `Podfile`.** Never add `pod 'AmplySDK'` or a separate `AmplySDK` Swift package next to the RN SDK — the bridge already brings it, and a second source can break the build or put the SDK in the app twice. If the project has one from an older guide, remove it.
+- **Static linking only** — the RN/Expo defaults and `use_frameworks! :linkage => :static` / `"useFrameworks": "static"`. A dynamic-framework build fails with a compile error from `AmplyModule.mm`; report the setting to the human rather than working around it.
+- **Network at build time** — the first iOS build downloads the framework from `github.com` and `release-assets.githubusercontent.com`. EAS and hosted CI have access; a locked-down CI needs both hosts allowed.
+- Requires React Native 0.75+ (`spm_dependency`); the SDK supports 0.79+ anyway.
 
 ## Initialize
 

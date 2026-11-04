@@ -16,11 +16,13 @@ Then add `AmplySDK` to the target's `dependencies`.
 
 ## Install — CocoaPods
 
+CocoaPods trunk stops accepting new versions on 2026-12-02, so a name-only pin (`pod 'AmplySDK', '~> X'`) will not see later releases. Prefer SPM; for a CocoaPods project, point at the tagged podspec:
+
 ```ruby
-pod 'AmplySDK', '~> 0.15.0'
+pod 'AmplySDK', :podspec => 'https://raw.githubusercontent.com/amply-tools/amply-sdk-ios/<X.Y.Z>/AmplySDK.podspec'
 ```
 
-Then `pod install`.
+Then `pod install`. To upgrade, change `<X.Y.Z>` in the URL and run `pod install` again.
 
 **Pin `0.15.0` or later** (both managers; Mini-app campaigns need 0.12.0, template variables in campaign links 0.13.0, Test on device (`handleUrl`), Show after and `getLastCampaignTouch` 0.15.0; the pod declares iOS 15.0 since 0.13.0). Listener registration changed shape in 0.9.0 — see *Withdrawing a listener* below; the examples here are written against it and will not compile on 0.8.x. (Event-history audience targeting needs 0.6.1+, which 0.12.0 satisfies.)
 
@@ -47,7 +49,7 @@ After any version change, do all four — and run them yourself; do **not** defe
 3. **Rebuild** — and, for a shipped app, **re-archive + re-upload**. A pin edit that never produced a new build means users still run the old SDK: "edited `Package.resolved`" ≠ "shipped the new SDK".
 4. **Confirm at runtime which SDK actually ran.** Launch the build and check that the device's session reports the expected `sdkVersionNormalized` (visible in the Amply admin / session payload). This is the decisive check — it catches a stale binary that steps 1–3 can all miss. Note: SDK **≤ 0.5.0 hard-coded `sdkVersionNormalized` to `1.0.0`**, so this assertion only becomes meaningful once the build is ≥ 0.5.1 (build-time version); below that, rely on the `git describe` check in step 2.
 
-**CocoaPods variant.** `pod install` alone will **not** move you within an allowed range — it honours the existing `Podfile.lock`. To upgrade: bump the `Podfile` constraint if needed, then `pod update AmplySDK` (if it doesn't move, clear a stale cached pod with `pod cache clean AmplySDK` first). Verify `AmplySDK (<X>)` in `Podfile.lock`, then rebuild and run the same runtime `sdkVersionNormalized` check (step 4).
+**CocoaPods variant.** With the tagged-podspec form, change the version in the URL and run `pod install`. With an old name-only pin, `pod install` alone will **not** move you within an allowed range — it honours the existing `Podfile.lock`: bump the `Podfile` constraint if needed, then `pod update AmplySDK` (if it doesn't move, clear a stale cached pod with `pod cache clean AmplySDK` first). Verify `AmplySDK (<X>)` in `Podfile.lock`, then rebuild and run the same runtime `sdkVersionNormalized` check (step 4).
 
 ## Initialize — `AppDelegate` (UIKit) or `@main App` (SwiftUI)
 

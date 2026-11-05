@@ -4,6 +4,11 @@ All notable changes to `amply-integration` are documented here. Format follows [
 
 ## [Unreleased]
 
+## [0.19.2] — 2026-11-05
+
+### Changed
+- **React Native SDK 0.18.0: the native iOS SDK comes from Swift Package Manager** (`references/sdk-cheatsheet-rn.md` → *iOS native SDK delivery (0.18.0+)*; `references/sdk-cheatsheet-ios.md`). The RN package attaches `AmplySDK` from its Swift package during `pod install`, pinned exactly; the skill no longer tells RN / Expo apps to add or update an `AmplySDK` pod, flags a second `AmplySDK` source (pod or package) as a finding, and knows the limits: static linking only, React Native 0.75+, network access to `github.com` on the first build. React Native's SPM mode (0.87+) is supported. Native iOS apps on CocoaPods install from the tagged podspec URL, because the CocoaPods catalog stops taking new versions on 2026-12-02.
+
 ## [0.19.1] — 2026-11-03
 
 ### Fixed
